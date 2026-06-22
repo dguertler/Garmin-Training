@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import ReadinessScore from '@/components/ReadinessScore'
 import MacroRings from '@/components/MacroRings'
 import MealPlan from '@/components/MealPlan'
@@ -66,17 +67,20 @@ export default function DashboardPage() {
   const [readinessTrend, setReadinessTrend] = useState<Array<{ date: string; score: number | null; level: string; color: string }>>([])
   const [loading, setLoading] = useState(true)
   const [showInput, setShowInput] = useState(false)
+  const [garminConnected, setGarminConnected] = useState<boolean | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [dashRes, readRes] = await Promise.all([
+      const [dashRes, readRes, garminRes] = await Promise.all([
         fetch('/api/dashboard'),
         fetch('/api/readiness'),
+        fetch('/api/garmin/credentials'),
       ])
-      const [dash, read] = await Promise.all([dashRes.json(), readRes.json()])
+      const [dash, read, garmin] = await Promise.all([dashRes.json(), readRes.json(), garminRes.json()])
       setData(dash)
       if (read.trend) setReadinessTrend(read.trend)
+      setGarminConnected(garmin.connected ?? false)
     } finally {
       setLoading(false)
     }
@@ -97,6 +101,19 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5">
+      {/* Garmin-Setup-Banner */}
+      {garminConnected === false && (
+        <div className="card border-amber-500/40 bg-amber-500/5 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-semibold text-amber-300">Garmin Connect nicht verbunden</div>
+            <div className="text-xs text-slate-400 mt-0.5">Verbinde dein Garmin-Konto, um Readiness, HRV und Aktivitätsdaten zu synchronisieren.</div>
+          </div>
+          <Link href="/settings" className="text-xs font-medium text-amber-300 border border-amber-500/40 rounded-lg px-3 py-1.5 hover:bg-amber-500/10 transition-all flex-shrink-0">
+            Verbinden
+          </Link>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

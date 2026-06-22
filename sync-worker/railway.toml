@@ -1,7 +1,13 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "python main.py"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 5
+healthcheckPath = "/sync/trigger"
+healthcheckTimeout = 30
+
+[env]
+WORKER_PORT = { default = "8001" }

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Profile {
   current_phase: string
@@ -27,6 +27,15 @@ interface ProfileData {
   syncStatus: { status: string; finished_at: string } | null
 }
 
+interface GarminStatus {
+  connected: boolean
+  status: string
+  garmin_username: string | null
+  last_refreshed_at: string | null
+  error_message: string | null
+  last_sync: { status: string; finished_at: string | null } | null
+}
+
 export default function SettingsClient() {
   const [data, setData] = useState<ProfileData | null>(null)
   const [form, setForm] = useState({
@@ -36,6 +45,13 @@ export default function SettingsClient() {
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  // Garmin credentials
+  const [garminStatus, setGarminStatus] = useState<GarminStatus | null>(null)
+  const [garminForm, setGarminForm] = useState({ email: '', password: '' })
+  const [garminSaving, setGarminSaving] = useState(false)
+  const [garminMsg, setGarminMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     fetch('/api/profile').then(r => r.json()).then((d: ProfileData) => {
@@ -48,7 +64,41 @@ export default function SettingsClient() {
         })
       }
     })
+    fetch('/api/garmin/credentials').then(r => r.json()).then(setGarminStatus)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [])
+
+  async function handleGarminSave() {
+    setGarminSaving(true)
+    setGarminMsg(null)
+    const res = await fetch('/api/garmin/credentials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ garmin_email: garminForm.email, garmin_password: garminForm.password }),
+    })
+    const json = await res.json()
+    setGarminSaving(false)
+    if (!res.ok) {
+      setGarminMsg({ type: 'err', text: json.error ?? 'Fehler beim Speichern' })
+      return
+    }
+    setGarminMsg({ type: 'ok', text: json.message })
+    setGarminForm({ email: '', password: '' })
+    // Sync-Status alle 5s pollen bis fertig
+    if (pollRef.current) clearInterval(pollRef.current)
+    pollRef.current = setInterval(async () => {
+      const s: GarminStatus = await fetch('/api/garmin/credentials').then(r => r.json())
+      setGarminStatus(s)
+      if (s.last_sync?.status !== 'running') {
+        if (pollRef.current) clearInterval(pollRef.current)
+        if (s.last_sync?.status === 'error') {
+          setGarminMsg({ type: 'err', text: 'Sync fehlgeschlagen – Credentials prüfen.' })
+        } else if (s.last_sync?.status === 'done') {
+          setGarminMsg({ type: 'ok', text: 'Sync erfolgreich. Daten werden geladen.' })
+        }
+      }
+    }, 5000)
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -204,6 +254,77 @@ export default function SettingsClient() {
           </p>
         </div>
       )}
+
+      {/* Garmin-Verbindung */}
+      <div className="card space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-slate-200">Garmin Connect</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              E-Mail und Passwort werden einmalig zum Token-Erstellen verwendet. Das Passwort wird nicht gespeichert.
+            </p>
+          </div>
+          {garminStatus && (
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+              garminStatus.connected
+                ? 'bg-prime/20 text-prime'
+                : garminStatus.status === 'error'
+                ? 'bg-red-500/20 text-red-400'
+                : 'bg-slate-700 text-slate-400'
+            }`}>
+              {garminStatus.connected ? 'Verbunden' : garminStatus.status === 'error' ? 'Fehler' : 'Nicht verbunden'}
+            </span>
+          )}
+        </div>
+
+        {garminStatus?.connected && (
+          <div className="text-xs text-slate-400 space-y-0.5">
+            <div>Konto: <span className="text-slate-300">{garminStatus.garmin_username}</span></div>
+            {garminStatus.last_sync && (
+              <div>
+                Letzter Sync:{' '}
+                <span className={garminStatus.last_sync.status === 'done' ? 'text-prime' : garminStatus.last_sync.status === 'running' ? 'text-amber-400' : 'text-red-400'}>
+                  {garminStatus.last_sync.status === 'running' ? 'läuft…' : garminStatus.last_sync.finished_at ? new Date(garminStatus.last_sync.finished_at).toLocaleString('de-DE') : '—'}
+                </span>
+              </div>
+            )}
+            {garminStatus.error_message && (
+              <div className="text-red-400 mt-1">{garminStatus.error_message}</div>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <input
+            type="email"
+            className="input-field w-full"
+            placeholder="Garmin-E-Mail"
+            value={garminForm.email}
+            onChange={e => setGarminForm(f => ({ ...f, email: e.target.value }))}
+            autoComplete="off"
+          />
+          <input
+            type="password"
+            className="input-field w-full"
+            placeholder="Garmin-Passwort"
+            value={garminForm.password}
+            onChange={e => setGarminForm(f => ({ ...f, password: e.target.value }))}
+            autoComplete="new-password"
+          />
+        </div>
+        <button
+          onClick={handleGarminSave}
+          disabled={garminSaving || !garminForm.email || !garminForm.password}
+          className="btn-primary w-full"
+        >
+          {garminSaving ? 'Verbinde…' : garminStatus?.connected ? 'Token erneuern' : 'Mit Garmin verbinden'}
+        </button>
+        {garminMsg && (
+          <p className={`text-sm text-center ${garminMsg.type === 'ok' ? 'text-prime' : 'text-red-400'}`}>
+            {garminMsg.text}
+          </p>
+        )}
+      </div>
 
       {/* Speichern */}
       <button
