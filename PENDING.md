@@ -1,144 +1,69 @@
 # Ausstehende Phasen – Garmin Training Dashboard
 
-Implementierter Stand: Phase 1–3 (DB-Schema, Sync, Dashboard, Strength, Nutrition, Readiness, Progression, Trends, Settings, NEAT, Zones).
+Implementierter Stand: Phase 1–10 (großteils abgeschlossen).
 
 ---
 
-## Phase 4 – Workout-Status & Trainingshistorie
+## ✅ Implementiert (diese Session)
 
-### 4.1 Workout-Status-Tracking
-- **API** `PATCH /api/readiness/[date]` – Workout als `done | skipped | modified` markieren
-- **Komponente** `WeekPlanCard` um Status-Buttons erweitern (✓ Erledigt / × Übersprungen)
-- **DB** `daily_readiness.workout_status` wird bereits gespeichert, fehlt nur das UI
+### Phase 4 – Workout-Status & Trainingshistorie
+- ✅ **4.1** `PATCH /api/readiness/[date]` – Workout als `done | skipped | modified` markieren
+- ✅ **4.1** `WeekPlanCard` – Status-Buttons (✓/✕) für heutige + vergangene Tage
+- ✅ **4.2** `/strength/history` – Session-Verlauf mit Filter, Volumen-Sparkline, Satz-Details
+- ✅ **4.3** `/api/personal-records` + `PRBoard` – PRs (Kraft + Lauf), Delta vs. Vorjahr
 
-### 4.2 Strength-Session-Verlauf
-- **Seite** `/strength/history` – Übersicht aller Sessions (Datum, Typ, Volumen, Rating)
-- **API** `GET /api/strength?limit=30&type=push` – Filterbarer Verlauf
-- **Komponente** `StrengthHistoryChart` – Volumenverlauf (kg) + Ø RIR pro Bewegungsmuster über Zeit
-- **DB** bereits vollständig (`strength_logs` + `strength_sets`)
+### Phase 5 – Ernährungs-Vertiefung
+- ✅ **5.2** `CarbCycleCalendar` – 4-Wochen-Kalender nach Wochenskelett (in Nutrition)
+- ✅ **5.3** `WeightChart` – SVG-Chart: Rohgewicht + 7T-Trend + KFA (in Trends + Nutrition)
+- ✅ **5.4** `daily_input.alcohol_units` (Migration 004), DailyInputModal-Feld, Readiness-Warnung
+- ⏳ **5.1** Kalorien-Logging (meal_logs) – noch offen
 
-### 4.3 Persönliche Rekorde (PRs)
-- **API** `GET /api/personal-records` – Liest aus `personal_records` Tabelle
-- **Komponente** `PRBoard` – Tabelle mit PR pro Disziplin (Kraft + Lauf), Delta vs. Vorjahr
-- **Sync** `sync_weekly._save_personal_records()` – bereits in Sync vorgesehen, braucht DB-Eintrag
+### Phase 6 – Lauf-Analyse & Concurrent Training
+- ✅ **6.1** `PostWorkoutCard` + `/api/activities/recent-analyses` (in Trends)
+- ✅ **6.2** `checkConcurrentTraining()` in readiness.ts + Dashboard-Banner
+- ✅ **6.3** `/settings/zones` – Lauf-Pace-Zonen-Kalkulator (LTHR + VO2max)
+
+### Phase 7 – Frau-Profil
+- ✅ **7.3** `/api/profile/goals` + Settings-Ziele-Sektion
+- ⏳ **7.1+7.2** Frau-spezifische Trainingslogik – noch offen
+
+### Phase 8 – Deployment & Infrastruktur
+- ✅ **8.1** `sync-worker/Dockerfile` (Python 3.12 slim) + railway.toml auf Dockerfile umgestellt
+- ✅ **8.2** `/api/garmin/credentials` + Settings-Garmin-Sektion (Verbindungsstatus, Sync-Polling)
+- ✅ **8.3** `/onboarding` – 4-Schritt-Wizard (Körper → LTHR-Zonen → Phase → Garmin)
+- ✅ **8.4** `db/migrate.sh` – Idempotentes Migrations-Skript
+
+### Phase 9 – UI-Polish & Mobile
+- ✅ **9.1** `public/manifest.json` – PWA-Manifest (standalone, dark theme)
+- ✅ **9.2** `SkeletonCard/SkeletonChart/SkeletonList` – Animierte Placeholder-Komponenten
+- ⏳ **9.3** Offline-Service-Worker – noch offen
+- ⏳ **9.4** Web-Push-Benachrichtigungen – noch offen
+
+### Phase 10 – Daten-Export
+- ✅ **10.1** `/api/export/csv?type=weight|readiness|strength` + Settings-Export-Links
+- ⏳ **10.2** JSON-Vollexport (ZIP) – noch offen
 
 ---
 
-## Phase 5 – Ernährungs-Vertiefung
+## Noch Ausstehend
 
 ### 5.1 Kalorien-Logging (Mahlzeiten-Tracking)
-- **API** `POST /api/meals/log` – Mahlzeit aus Template ins `meal_logs` loggen (Tabelle existiert)
+- **API** `POST /api/meals/log` – Mahlzeit aus Template ins `meal_logs` loggen
 - **API** `GET /api/meals/log?date=` – Tageslog abrufen
 - **Seite** `/nutrition/log` – Tagesansicht: Mahlzeiten tracken, Gesamtkalorien vs. Ziel
 - **Komponente** `MealLogger` – Pro Mahlzeit-Slot: Template auswählen + loggen
 
-### 5.2 Carb-Cycling-Kalender
-- **Komponente** `CarbCycleCalendar` – 4-Wochen-Kalender: Training (refeed/normal) vs. Ruhe (-70g)
-- In `/nutrition` einbinden
-
-### 5.3 Gewichtsverlauf-Chart
-- **Komponente** `WeightChart` – Chart.js Liniendiagramm: Rohgewicht (grau) + 7-Tage-Trend (grün) + KFA (rechte Achse)
-- In `/nutrition` + `/trends` einbinden
-- Daten bereits vorhanden in `daily_input`
-
-### 5.4 Alkohol als Störvariable
-- **Feld** `daily_input.alcohol_units` (INTEGER) per Migration hinzufügen
-- **DailyInputModal** um Alkohol-Feld erweitern
-- **Readiness-Anzeige**: Hinweis wenn `alcohol_units > 0` und Readiness < 60
-
----
-
-## Phase 6 – Lauf-Analyse & Concurrent Training
-
-### 6.1 Post-Workout-Analyse-Anzeige
-- **Komponente** `PostWorkoutCard` – Insights-Karten nach Aktivitätssync anzeigen
-- **API** `GET /api/activities/recent-analyses` – Letzte 5 Analysen mit Insights
-- In `/strength` oder `/trends` einbinden
-
-### 6.2 Concurrent-Training-Warnung
-- **Logik** in `src/lib/readiness.ts`: `checkConcurrentTraining(weekPlan)` – warnt wenn Zone2 + Krafttraining am gleichen Tag oder innerhalb 6h geplant
-- **Dashboard** Warnung einblenden wenn Konflikt erkannt
-
-### 6.3 Lauf-Pace-Zonen-Kalkulator
-- **Seite** `/settings/zones` (Unterseite von Settings)
-- Berechnet Lauf-Pace-Zonen aus LTHR + aktuellem VO2max
-- Format: Zone 2 = X:XX–X:XX min/km
-
----
-
-## Phase 7 – Frau-Profil (Baseline Building)
-
-### 7.1 Frau-spezifische Trainingsphase
+### 7.1+7.2 Frau-Profil (Baseline Building)
 - **DB** `user_profiles.current_phase = 'baseline_building'` für Frau
-- **Readiness-Logik**: Bei `baseline_building` kein Deload-Trigger, Zone-2-Fokus, niedrigere Schwellen
-- **Settings**: Phase-Option "Baseline Building" für Frau-Profil hinzufügen
+- **Readiness-Logik**: Bei `baseline_building` kein Deload-Trigger, Zone-2-Fokus
+- **Settings**: Phase-Option "Baseline Building" für Frau-Profil
 
-### 7.2 Frau-Dashboard-Unterschiede
-- **Geteilte Ansicht** `/dashboard/shared` bereits implementiert (read-only)
-- Frau-spezifische Empfehlungen: mehr Zone-2, weniger Intensität, Zyklus-Integration optional
-
-### 7.3 Profil-Ziele (`profile_goals`)
-- **API** `GET/PATCH /api/profile/goals` – Zielgewicht, KFA, Wochentraining-Ziele (Tabelle existiert)
-- **Seite** `/settings` um Ziel-Sektion erweitern
-
----
-
-## Phase 8 – Deployment & Infrastruktur
-
-### 8.1 Railway-Deployment vollständig konfigurieren
-- **Dockerfile** für `sync-worker` (Python 3.12, alle Dependencies)
-- **`railway.toml`** bereits vorhanden – prüfen ob `[deploy]` und `[env]` vollständig
-- **Environment-Variablen-Checkliste** in README: `DATABASE_URL`, `NEXTAUTH_SECRET`, `GARMIN_ENCRYPT_KEY`, `WORKER_PORT`, `NEXTAUTH_URL`
-- **Health-Check** `/api/health` bereits vorhanden
-
-### 8.2 Garmin-Credentials-Setup-UI
-- **Seite** `/setup` oder Modal in `/settings` – Garmin-E-Mail + Passwort eingeben
-- **API** `POST /api/setup` bereits vorhanden – prüfen ob Credentials-Speicherung + Sync-Trigger funktioniert
-- **Feedback**: Sync-Status nach erfolgreicher Authentifizierung zeigen
-
-### 8.3 Erster-Start-Wizard
-- **Seite** `/onboarding` – Schritt-für-Schritt für neuen User:
-  1. Gewicht + KFA eingeben
-  2. LTHR eingeben (oder "weiß ich nicht" → Standard-Zonen)
-  3. Trainingsphase wählen
-  4. Garmin-Credentials eingeben + ersten Sync auslösen
-- Redirect nach `/dashboard` nach Abschluss
-
-### 8.4 Datenbank-Migration-Skript
-- **Skript** `db/migrate.sh` – führt alle Migrations-SQLs in Reihenfolge aus
-- Idempotent durch `schema_migrations` Tabelle (bereits im Schema)
-
----
-
-## Phase 9 – UI-Polish & Mobile
-
-### 9.1 PWA-Manifest
-- **`public/manifest.json`** – App-Name, Icons, Theme-Color (#0f172a), Display: standalone
-- **`src/app/layout.tsx`** – `<link rel="manifest">` + Apple-Touch-Icon hinzufügen
-- **`public/icons/`** – 192px + 512px Icons generieren
-
-### 9.2 Loading-States verbessern
-- Skeleton-Loader für alle Chart-Komponenten (HRVChart, SleepBars, PolarizedZonesChart)
-- Error-Boundary für API-Fehler in Client-Komponenten
-
-### 9.3 Offline-Fallback
-- Service Worker: Dashboard zeigt letzte gecachte Daten wenn offline
-- `next-pwa` oder custom Service Worker
-
-### 9.4 Benachrichtigungen (optional)
-- Web Push API: Deload-Empfehlung, Gear-Warnung, NEAT-Absenkung
-- `public/sw.js` + Push-API
-
----
-
-## Phase 10 – Daten-Export & Backup
-
-### 10.1 CSV-Export
-- **API** `GET /api/export/csv?type=weight|readiness|strength` – Daten als CSV
-- Format: kompatibel mit Excel / Numbers
+### 9.3+9.4 PWA-Erweiterungen
+- **Service Worker** für Offline-Fallback (letzte gecachte Daten)
+- **Web Push API** für Deload/NEAT-Benachrichtigungen
 
 ### 10.2 JSON-Vollexport
-- **API** `GET /api/export/full` – Alle User-Daten als ZIP (für Daten-Portabilität)
+- **API** `GET /api/export/full` – Alle User-Daten als ZIP
 
 ---
 
@@ -152,19 +77,15 @@ Implementierter Stand: Phase 1–3 (DB-Schema, Sync, Dashboard, Strength, Nutrit
 | 4 | `src/app/api/strength/route.ts` | `_checkProgression()` liest `progression` über `/api/strength` – separate Route sauberer |
 | 5 | `db/schema.sql` | `daily_input.source` Spalte fehlt noch in Hauptschema (nur in Migration 003) |
 | 6 | `sync-worker/sync_daily.py` | Garmin Index Gewicht-Import ignoriert manuell eingetragene Tage nicht (nur `ON CONFLICT DO NOTHING` – korrekt, aber kein User-Feedback) |
+| 7 | `public/icons/` | PWA-Icons (192px + 512px) fehlen – Manifest verweist darauf, Fallback fehlt |
 
 ---
 
-## Abhängigkeiten & Reihenfolge
+## Abhängigkeiten & Reihenfolge für Restaufgaben
 
 ```
-Phase 4 (Workout-Status) → unabhängig, schnell umsetzbar
-Phase 5 (Mahlzeiten-Log) → braucht Phase 4 nicht
-Phase 6 (Lauf-Analyse)   → braucht Phase 2 (Analysen bereits da)
-Phase 7 (Frau-Profil)    → unabhängig
-Phase 8 (Deployment)     → blockiert Production-Nutzung
-Phase 9 (UI-Polish)      → nach Phase 8
-Phase 10 (Export)        → nach Phase 8
+5.1 (Meal Logging)   → unabhängig, nächste sinnvolle Erweiterung
+7.1+7.2 (Frau)       → braucht Phase 8.3 (Onboarding bereits da)
+9.3 (Service Worker) → nach 9.1 (Manifest bereits da)
+10.2 (JSON-Export)   → unabhängig
 ```
-
-**Empfohlene Reihenfolge:** 8.2 → 8.3 → 8.1 → 4.1 → 5.3 → 9.1 → Rest
