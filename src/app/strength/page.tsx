@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import StrengthLogger from '@/components/StrengthLogger'
 import PolarizedZonesChart from '@/components/PolarizedZonesChart'
+import PRBoard from '@/components/PRBoard'
 
 const TYPES = [
   { key: 'push' as const, label: 'Push',           icon: '🤸', desc: 'Brust · Schulter · Trizeps' },
@@ -35,9 +36,14 @@ export default function StrengthPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-slate-100">Krafttraining</h1>
-        <p className="text-slate-400 text-sm mt-1">Workout auswählen</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-100">Krafttraining</h1>
+          <p className="text-slate-400 text-sm mt-1">Workout auswählen</p>
+        </div>
+        <Link href="/strength/history" className="text-xs text-slate-400 hover:text-slate-200 border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 transition-all">
+          Verlauf →
+        </Link>
       </div>
 
       <div className="space-y-3">
@@ -68,6 +74,9 @@ export default function StrengthPage() {
 
       {/* 80/20 Zonenverteilung */}
       <PolarizedZonesChart />
+
+      {/* Persönliche Rekorde */}
+      <PRBoard />
     </div>
   )
 }
