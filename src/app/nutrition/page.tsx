@@ -4,6 +4,7 @@ import Link from 'next/link'
 import MealPlan from '@/components/MealPlan'
 import DailyInputModal from '@/components/DailyInputModal'
 import WeightChart from '@/components/WeightChart'
+import CarbCycleCalendar from '@/components/CarbCycleCalendar'
 import { calcWeightTrend } from '@/lib/nutrition'
 
 interface NutritionData {
@@ -116,6 +117,9 @@ export default function NutritionPage() {
           height={160}
         />
       ) : null}
+
+      {/* Carb-Cycling-Kalender */}
+      <CarbCycleCalendar />
 
       {/* Nährstoff-Timing Guide */}
       <div className="card space-y-3">

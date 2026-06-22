@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import RacePredictionWidget from '@/components/RacePredictionWidget'
 import WeightChart from '@/components/WeightChart'
+import PostWorkoutCard from '@/components/PostWorkoutCard'
 
 interface TrendsData {
   garmin_trend: Array<{
@@ -171,6 +172,9 @@ export default function TrendsClient() {
 
       {/* Race Predictions */}
       <RacePredictionWidget predictions={data.race_predictions} />
+
+      {/* Post-Workout-Analysen */}
+      <PostWorkoutCard />
     </div>
   )
 }
