@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
 interface Profile {
@@ -46,6 +47,14 @@ export default function SettingsClient() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // Goals
+  const [goals, setGoals] = useState({
+    target_weight_kg: '', target_body_fat_pct: '',
+    weekly_strength_sessions: '3', weekly_cardio_sessions: '2',
+    target_date: '',
+  })
+  const [goalsSaved, setGoalsSaved] = useState(false)
+
   // Garmin credentials
   const [garminStatus, setGarminStatus] = useState<GarminStatus | null>(null)
   const [garminForm, setGarminForm] = useState({ email: '', password: '' })
@@ -65,8 +74,33 @@ export default function SettingsClient() {
       }
     })
     fetch('/api/garmin/credentials').then(r => r.json()).then(setGarminStatus)
+    fetch('/api/profile/goals').then(r => r.json()).then(d => {
+      if (d.goals) setGoals({
+        target_weight_kg: d.goals.target_weight_kg?.toString() ?? '',
+        target_body_fat_pct: d.goals.target_body_fat_pct?.toString() ?? '',
+        weekly_strength_sessions: d.goals.weekly_strength_sessions?.toString() ?? '3',
+        weekly_cardio_sessions: d.goals.weekly_cardio_sessions?.toString() ?? '2',
+        target_date: d.goals.target_date ?? '',
+      })
+    })
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [])
+
+  async function handleGoalsSave() {
+    setGoalsSaved(false)
+    await fetch('/api/profile/goals', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target_weight_kg: goals.target_weight_kg ? Number(goals.target_weight_kg) : null,
+        target_body_fat_pct: goals.target_body_fat_pct ? Number(goals.target_body_fat_pct) : null,
+        weekly_strength_sessions: Number(goals.weekly_strength_sessions),
+        weekly_cardio_sessions: Number(goals.weekly_cardio_sessions),
+        target_date: goals.target_date || null,
+      }),
+    })
+    setGoalsSaved(true)
+  }
 
   async function handleGarminSave() {
     setGarminSaving(true)
@@ -255,6 +289,51 @@ export default function SettingsClient() {
         </div>
       )}
 
+      {/* Ziele */}
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-slate-200">Meine Ziele</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-xs text-slate-400 mb-1 block">Zielgewicht</span>
+            <div className="flex items-center gap-1">
+              <input type="number" className="input-field w-full" placeholder="75.0"
+                value={goals.target_weight_kg}
+                onChange={e => setGoals(g => ({ ...g, target_weight_kg: e.target.value }))} />
+              <span className="text-xs text-slate-500">kg</span>
+            </div>
+          </label>
+          <label className="block">
+            <span className="text-xs text-slate-400 mb-1 block">Ziel-KFA</span>
+            <div className="flex items-center gap-1">
+              <input type="number" className="input-field w-full" placeholder="15.0"
+                value={goals.target_body_fat_pct}
+                onChange={e => setGoals(g => ({ ...g, target_body_fat_pct: e.target.value }))} />
+              <span className="text-xs text-slate-500">%</span>
+            </div>
+          </label>
+          <label className="block">
+            <span className="text-xs text-slate-400 mb-1 block">Kraft/Woche</span>
+            <input type="number" min="0" max="7" className="input-field w-full"
+              value={goals.weekly_strength_sessions}
+              onChange={e => setGoals(g => ({ ...g, weekly_strength_sessions: e.target.value }))} />
+          </label>
+          <label className="block">
+            <span className="text-xs text-slate-400 mb-1 block">Cardio/Woche</span>
+            <input type="number" min="0" max="7" className="input-field w-full"
+              value={goals.weekly_cardio_sessions}
+              onChange={e => setGoals(g => ({ ...g, weekly_cardio_sessions: e.target.value }))} />
+          </label>
+        </div>
+        <label className="block">
+          <span className="text-xs text-slate-400 mb-1 block">Zieldatum</span>
+          <input type="date" className="input-field w-full"
+            value={goals.target_date}
+            onChange={e => setGoals(g => ({ ...g, target_date: e.target.value }))} />
+        </label>
+        <button onClick={handleGoalsSave} className="btn-primary w-full">Ziele speichern</button>
+        {goalsSaved && <p className="text-xs text-prime text-center">Ziele gespeichert ✓</p>}
+      </div>
+
       {/* Garmin-Verbindung */}
       <div className="card space-y-4">
         <div className="flex items-start justify-between gap-3">
@@ -338,6 +417,38 @@ export default function SettingsClient() {
       {saved && (
         <p className="text-sm text-prime text-center">Gespeichert ✓{form.lthr ? ' · HR-Zonen aktualisiert' : ''}</p>
       )}
+
+      {/* Daten-Export */}
+      <div className="card space-y-3">
+        <h2 className="font-semibold text-slate-200">Daten-Export</h2>
+        <p className="text-xs text-slate-400">CSV-Dateien für Excel / Numbers</p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { type: 'weight',    label: 'Gewichtsverlauf' },
+            { type: 'readiness', label: 'Readiness-Verlauf' },
+            { type: 'strength',  label: 'Krafttraining' },
+          ].map(ex => (
+            <a
+              key={ex.type}
+              href={`/api/export/csv?type=${ex.type}`}
+              download
+              className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-300 hover:border-white/20 hover:text-slate-100 transition-all"
+            >
+              {ex.label} ↓
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* Quicklinks */}
+      <div className="flex gap-3">
+        <Link href="/settings/zones" className="flex-1 card-sm text-center text-sm text-slate-400 hover:text-slate-200 transition-all">
+          Lauf-Pace-Zonen →
+        </Link>
+        <Link href="/onboarding" className="flex-1 card-sm text-center text-sm text-slate-400 hover:text-slate-200 transition-all">
+          Einrichtungs-Wizard →
+        </Link>
+      </div>
     </div>
   )
 }
