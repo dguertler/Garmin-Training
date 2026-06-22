@@ -1,0 +1,102 @@
+'use client'
+import { useState } from 'react'
+
+interface Props {
+  initial?: { weight_kg?: number; body_fat_pct?: number }
+  onSave: (data: { weight_kg: number; body_fat_pct: number }) => void
+  onClose: () => void
+}
+
+export default function DailyInputModal({ initial, onSave, onClose }: Props) {
+  const [weight, setWeight] = useState(String(initial?.weight_kg ?? ''))
+  const [fat, setFat] = useState(String(initial?.body_fat_pct ?? ''))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSave() {
+    const w = parseFloat(weight)
+    const f = parseFloat(fat)
+    if (isNaN(w) || w < 30 || w > 250) { setError('Gewicht ungültig (30–250 kg)'); return }
+    if (isNaN(f) || f < 3  || f > 60)  { setError('KFA ungültig (3–60%)'); return }
+
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch('/api/daily-input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weight_kg: w, body_fat_pct: f }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      onSave({ weight_kg: w, body_fat_pct: f })
+      onClose()
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Lean mass preview
+  const w = parseFloat(weight)
+  const f = parseFloat(fat)
+  const lean = (!isNaN(w) && !isNaN(f)) ? Math.round(w * (1 - f/100) * 10)/10 : null
+  const bmr  = lean ? Math.round(370 + 21.6 * lean) : null
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="card w-full max-w-sm space-y-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-100">Tageseingabe</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-100 text-xl leading-none">✕</button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="stat-label block mb-1.5">Körpergewicht (kg)</label>
+            <input
+              type="number" step="0.1" min="30" max="250"
+              className="input-field w-full"
+              placeholder="91.0"
+              value={weight}
+              onChange={e => setWeight(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="stat-label block mb-1.5">Körperfettanteil (%)</label>
+            <input
+              type="number" step="0.1" min="3" max="60"
+              className="input-field w-full"
+              placeholder="18.8"
+              value={fat}
+              onChange={e => setFat(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Live-Vorschau */}
+        {lean !== null && bmr !== null && (
+          <div className="bg-white/5 rounded-xl p-3 space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Magermasse</span>
+              <span className="font-semibold text-slate-200">{lean} kg</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">BMR (Katch-McArdle)</span>
+              <span className="font-semibold text-slate-200">{bmr} kcal</span>
+            </div>
+          </div>
+        )}
+
+        {error && <p className="text-low text-sm">{error}</p>}
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="btn-ghost flex-1">Abbrechen</button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
+            {saving ? 'Speichern…' : 'Speichern & Makros berechnen'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

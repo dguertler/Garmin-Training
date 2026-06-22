@@ -21,10 +21,12 @@ from dotenv import load_dotenv
 from garmin_auth import get_db_conn, get_garmin_client
 from sync_daily import sync_user_daily
 from sync_weekly import sync_user_weekly
+from web_server import start_web_server
 
 load_dotenv()
 
 logging.basicConfig(
+
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     stream=sys.stdout,
@@ -103,6 +105,9 @@ def main():
         misfire_grace_time=600,
         coalesce=True,
     )
+
+    # HTTP-Server für manuellen Trigger (Next.js → POST /sync/trigger)
+    start_web_server(port=int(os.environ.get("WORKER_PORT", "8001")))
 
     logger.info(
         "Scheduler gestartet. Täglich 09:00 Europe/Berlin, Montags zusätzlich 09:30."

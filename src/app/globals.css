@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-surface text-slate-100 antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+}
+
+/* Scrollbar dark */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { @apply bg-surface; }
+::-webkit-scrollbar-thumb { @apply bg-surface-border rounded-full; }
+
+@layer components {
+  .card {
+    @apply bg-surface-card rounded-2xl border border-surface-border p-5;
+  }
+  .card-sm {
+    @apply bg-surface-card rounded-xl border border-surface-border p-4;
+  }
+  .btn-primary {
+    @apply bg-prime text-white font-semibold px-5 py-2.5 rounded-xl
+           hover:bg-prime-dark active:scale-95 transition-all duration-150;
+  }
+  .btn-ghost {
+    @apply text-slate-400 hover:text-slate-100 font-medium px-4 py-2 rounded-xl
+           hover:bg-white/5 transition-all duration-150;
+  }
+  .badge-prime    { @apply bg-prime/20    text-prime    text-xs font-semibold px-2.5 py-1 rounded-full; }
+  .badge-moderate { @apply bg-moderate/20 text-moderate text-xs font-semibold px-2.5 py-1 rounded-full; }
+  .badge-low      { @apply bg-low/20      text-low      text-xs font-semibold px-2.5 py-1 rounded-full; }
+  .badge-gray     { @apply bg-white/10    text-slate-400 text-xs font-semibold px-2.5 py-1 rounded-full; }
+
+  .input-field {
+    @apply bg-white/5 border border-surface-border rounded-xl px-4 py-2.5
+           text-slate-100 placeholder-slate-500 focus:outline-none
+           focus:border-prime focus:ring-1 focus:ring-prime/50 transition-all;
+  }
+
+  .stat-label { @apply text-xs text-slate-500 uppercase tracking-wider font-medium; }
+  .stat-value { @apply text-2xl font-bold text-slate-100; }
+}
