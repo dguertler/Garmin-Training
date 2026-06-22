@@ -65,6 +65,7 @@ interface DashboardData {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [readinessTrend, setReadinessTrend] = useState<Array<{ date: string; score: number | null; level: string; color: string }>>([])
+  const [alcoholWarning, setAlcoholWarning] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showInput, setShowInput] = useState(false)
   const [garminConnected, setGarminConnected] = useState<boolean | null>(null)
@@ -80,6 +81,7 @@ export default function DashboardPage() {
       const [dash, read, garmin] = await Promise.all([dashRes.json(), readRes.json(), garminRes.json()])
       setData(dash)
       if (read.trend) setReadinessTrend(read.trend)
+      if (read.alcohol_warning) setAlcoholWarning(read.alcohol_warning)
       setGarminConnected(garmin.connected ?? false)
     } finally {
       setLoading(false)
@@ -154,6 +156,7 @@ export default function DashboardPage() {
               hrv_status: r.factors?.hrv_status ?? null,
               training_status: r.factors?.training_status ?? null,
             }}
+            alcoholWarning={alcoholWarning}
           />
         )}
         <MacroRings

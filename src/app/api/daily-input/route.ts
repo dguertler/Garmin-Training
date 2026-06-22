@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (!userId)  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { weight_kg, body_fat_pct, entry_date } = body
+  const { weight_kg, body_fat_pct, entry_date, alcohol_units } = body
 
   if (!weight_kg || !body_fat_pct) {
     return NextResponse.json({ error: 'weight_kg und body_fat_pct erforderlich' }, { status: 400 })
@@ -25,11 +25,11 @@ export async function POST(req: NextRequest) {
 
   // Tageseingabe speichern
   await query(
-    `INSERT INTO daily_input (user_id, entry_date, weight_kg, body_fat_pct)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO daily_input (user_id, entry_date, weight_kg, body_fat_pct, alcohol_units)
+     VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (user_id, entry_date) DO UPDATE
-       SET weight_kg = $3, body_fat_pct = $4`,
-    [userId, date, weight_kg, body_fat_pct]
+       SET weight_kg = $3, body_fat_pct = $4, alcohol_units = $5`,
+    [userId, date, weight_kg, body_fat_pct, alcohol_units ?? 0]
   )
 
   // Profil aktualisieren

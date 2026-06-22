@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import RacePredictionWidget from '@/components/RacePredictionWidget'
+import WeightChart from '@/components/WeightChart'
 
 interface TrendsData {
   garmin_trend: Array<{
@@ -154,17 +155,7 @@ export default function TrendsClient() {
         )}
 
         {weightValues.length >= 2 && (
-          <div className="card space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-slate-200 text-sm">Gewicht (90 Tage)</h3>
-              <span className="text-slate-200 font-bold">{s.weight_current?.toFixed(1)} kg</span>
-            </div>
-            <SparkLine values={weightValues} color="#64748b" />
-            {weightTrendValues.length >= 2 && (
-              <SparkLine values={weightTrendValues} color="#22c55e" />
-            )}
-            <div className="text-xs text-slate-500">Grau = Rohwerte · Grün = 7T-Trend</div>
-          </div>
+          <WeightChart data={data.weight_trend} height={160} />
         )}
 
         {enduranceValues.length >= 2 && (

@@ -2,20 +2,22 @@
 import { useState } from 'react'
 
 interface Props {
-  initial?: { weight_kg?: number; body_fat_pct?: number }
-  onSave: (data: { weight_kg: number; body_fat_pct: number }) => void
+  initial?: { weight_kg?: number; body_fat_pct?: number; alcohol_units?: number }
+  onSave: (data: { weight_kg: number; body_fat_pct: number; alcohol_units?: number }) => void
   onClose: () => void
 }
 
 export default function DailyInputModal({ initial, onSave, onClose }: Props) {
   const [weight, setWeight] = useState(String(initial?.weight_kg ?? ''))
   const [fat, setFat] = useState(String(initial?.body_fat_pct ?? ''))
+  const [alcohol, setAlcohol] = useState(String(initial?.alcohol_units ?? '0'))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   async function handleSave() {
     const w = parseFloat(weight)
     const f = parseFloat(fat)
+    const a = parseInt(alcohol) || 0
     if (isNaN(w) || w < 30 || w > 250) { setError('Gewicht ungültig (30–250 kg)'); return }
     if (isNaN(f) || f < 3  || f > 60)  { setError('KFA ungültig (3–60%)'); return }
 
@@ -25,10 +27,10 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
       const res = await fetch('/api/daily-input', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weight_kg: w, body_fat_pct: f }),
+        body: JSON.stringify({ weight_kg: w, body_fat_pct: f, alcohol_units: a }),
       })
       if (!res.ok) throw new Error((await res.json()).error)
-      onSave({ weight_kg: w, body_fat_pct: f })
+      onSave({ weight_kg: w, body_fat_pct: f, alcohol_units: a })
       onClose()
     } catch (e) {
       setError(String(e))
@@ -37,11 +39,12 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
     }
   }
 
-  // Lean mass preview
+  // Live-Vorschau
   const w = parseFloat(weight)
   const f = parseFloat(fat)
   const lean = (!isNaN(w) && !isNaN(f)) ? Math.round(w * (1 - f/100) * 10)/10 : null
   const bmr  = lean ? Math.round(370 + 21.6 * lean) : null
+  const alcoholUnits = parseInt(alcohol) || 0
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -71,6 +74,27 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
               value={fat}
               onChange={e => setFat(e.target.value)}
             />
+          </div>
+          <div>
+            <label className="stat-label block mb-1.5">
+              Alkohol (Einheiten gestern)
+              <span className="text-slate-500 font-normal ml-1.5">1 Einheit ≈ 0,3L Bier / 0,2L Wein</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" step="1" min="0" max="20"
+                className="input-field w-24"
+                value={alcohol}
+                onChange={e => setAlcohol(e.target.value)}
+              />
+              <span className="text-sm text-slate-400">Einheiten</span>
+            </div>
+            {alcoholUnits > 0 && (
+              <p className="text-xs text-amber-400 mt-1">
+                Alkohol stört Testosteron, Schlaf und Muskelproteinsynthese.
+                {alcoholUnits >= 3 ? ' Readiness-Warnung aktiv.' : ''}
+              </p>
+            )}
           </div>
         </div>
 

@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const date = searchParams.get('date') ?? new Date().toISOString().split('T')[0]
 
-  const [raw, profile, history30, recentScores] = await Promise.all([
+  const [raw, profile, history30, recentScores, dailyInput] = await Promise.all([
     queryOne<{
       training_readiness_score: number | null
       training_readiness_factors: Record<string, unknown> | null
@@ -60,6 +60,10 @@ export async function GET(req: NextRequest) {
       `SELECT training_readiness_score FROM garmin_raw_metrics
        WHERE user_id = $1 AND metric_date <= $2
        ORDER BY metric_date DESC LIMIT 3`,
+      [userId, date]
+    ),
+    queryOne<{ alcohol_units: number | null }>(
+      `SELECT alcohol_units FROM daily_input WHERE user_id = $1 AND entry_date = $2`,
       [userId, date]
     ),
   ])
@@ -141,6 +145,9 @@ export async function GET(req: NextRequest) {
     vo2max: raw?.vo2max ?? null,
     resting_hr: raw?.resting_heart_rate ?? null,
     deload_warning: deloadCheck.trigger ? deloadCheck.reason : null,
+    alcohol_warning: (dailyInput?.alcohol_units ?? 0) > 0 && score !== null && score < 60
+      ? `${dailyInput!.alcohol_units} Alkohol-Einheit${(dailyInput!.alcohol_units ?? 0) > 1 ? 'en' : ''} gestern – Readiness reduziert`
+      : null,
     trend: history30.map(r => ({
       date: r.metric_date,
       score: r.training_readiness_score,

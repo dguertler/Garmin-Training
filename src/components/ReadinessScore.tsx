@@ -13,6 +13,7 @@ interface Props {
     hrv_status: string | null
     training_status: string | null
   }
+  alcoholWarning?: string | null
 }
 
 const LEVEL_LABEL: Record<string, string> = {
@@ -35,7 +36,7 @@ const WORKOUT_LABEL: Record<string, string> = {
   rest: 'Ruhetag',
 }
 
-export default function ReadinessScore({ score, level, color, recommendation, reason, factors }: Props) {
+export default function ReadinessScore({ score, level, color, recommendation, reason, factors, alcoholWarning }: Props) {
   const scoreDisplay = score ?? '–'
   const arc = score !== null ? Math.round((score / 100) * 251.2) : 0  // 2π × 40
 
@@ -69,6 +70,13 @@ export default function ReadinessScore({ score, level, color, recommendation, re
         </p>
         <p className="text-xs text-slate-400 leading-relaxed">{reason}</p>
       </div>
+
+      {/* Alkohol-Warnung */}
+      {alcoholWarning && (
+        <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 text-xs text-amber-300 text-center">
+          {alcoholWarning}
+        </div>
+      )}
 
       {/* Faktor-Chips */}
       <div className="flex flex-wrap gap-2 justify-center w-full">

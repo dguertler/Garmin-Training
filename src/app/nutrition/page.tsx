@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import MealPlan from '@/components/MealPlan'
 import DailyInputModal from '@/components/DailyInputModal'
+import WeightChart from '@/components/WeightChart'
+import { calcWeightTrend } from '@/lib/nutrition'
 
 interface NutritionData {
   today: {
@@ -104,23 +106,15 @@ export default function NutritionPage() {
         isTrainingDay={t?.is_training_day ?? false}
       />
 
-      {/* 30-Tage-Gewichtstrend */}
+      {/* Gewichtsverlauf-Chart */}
       {data?.history?.length ? (
-        <div className="card space-y-3">
-          <h2 className="font-semibold text-slate-200">Gewichtsverlauf (30 Tage)</h2>
-          <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-            {data.history.map(d => (
-              <div key={d.entry_date} className="flex items-center justify-between text-sm">
-                <span className="text-slate-400 text-xs w-24">
-                  {new Date(d.entry_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
-                </span>
-                <span className="text-slate-200 font-medium">{d.weight_kg} kg</span>
-                <span className="text-slate-400 text-xs">{d.body_fat_pct}% KFA</span>
-                <span className="text-slate-400 text-xs">{d.lean_mass_kg} kg Mager</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <WeightChart
+          data={data.history.map(d => ({
+            ...d,
+            trend_kg: calcWeightTrend(data.history.map(h => ({ date: h.entry_date, weight: h.weight_kg }))).find(t => t.date === d.entry_date)?.trend ?? null,
+          }))}
+          height={160}
+        />
       ) : null}
 
       {/* Nährstoff-Timing Guide */}
