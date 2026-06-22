@@ -54,6 +54,8 @@ def sync_user_weekly(client, user_id: str) -> dict:
     _save_weekly(user_id, week_start_str, data)
     _save_race_predictions(user_id, data.get("race_predictions"), today.isoformat())
     _update_gear(user_id, data.get("gear_stats"))
+    _compute_zone_distribution(user_id, week_start_str)
+    _update_neat_baseline(user_id)
 
     if errors:
         logger.warning("Wöchentlicher Sync teilweise fehlgeschlagen: %s", errors)
@@ -166,3 +168,103 @@ def _update_gear(user_id: str, gear_list) -> None:
                  gear.get("totalDistance"), json.dumps(gear)),
             )
         conn.commit()
+
+
+def _compute_zone_distribution(user_id: str, week_start: str) -> None:
+    """Berechnet wöchentliche Zonenverteilung aus garmin_activity_hr_zones und cached in weekly_zone_distribution."""
+    with get_db_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT hz.zone_number, SUM(hz.time_in_zone_seconds) AS secs
+            FROM garmin_activity_hr_zones hz
+            JOIN garmin_activities ga ON ga.id = hz.activity_id
+            WHERE ga.user_id = %s AND ga.start_time::date >= %s
+              AND ga.start_time::date < (%s::date + INTERVAL '7 days')::date
+            GROUP BY hz.zone_number
+            ORDER BY hz.zone_number
+            """,
+            (user_id, week_start, week_start)
+        )
+        rows = cur.fetchall()
+
+    zone_secs = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    for zone_number, secs in rows:
+        if 1 <= zone_number <= 5:
+            zone_secs[zone_number] = int(secs)
+
+    total = sum(zone_secs.values())
+    if total == 0:
+        return  # Keine Aktivitäten diese Woche – nichts cachen
+
+    def pct(s: int) -> float:
+        return round(s / total * 100, 1)
+
+    low_pct = pct(zone_secs[1] + zone_secs[2])
+    high_pct = pct(zone_secs[4] + zone_secs[5])
+
+    with get_db_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO weekly_zone_distribution
+                (user_id, week_start_date, total_training_seconds,
+                 z1_seconds, z2_seconds, z3_seconds, z4_seconds, z5_seconds,
+                 z1_pct, z2_pct, z3_pct, z4_pct, z5_pct,
+                 low_intensity_pct, high_intensity_pct, polarization_ok)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (user_id, week_start_date) DO UPDATE
+                SET total_training_seconds = EXCLUDED.total_training_seconds,
+                    z1_seconds = EXCLUDED.z1_seconds, z2_seconds = EXCLUDED.z2_seconds,
+                    z3_seconds = EXCLUDED.z3_seconds, z4_seconds = EXCLUDED.z4_seconds,
+                    z5_seconds = EXCLUDED.z5_seconds,
+                    z1_pct = EXCLUDED.z1_pct, z2_pct = EXCLUDED.z2_pct,
+                    z3_pct = EXCLUDED.z3_pct, z4_pct = EXCLUDED.z4_pct,
+                    z5_pct = EXCLUDED.z5_pct,
+                    low_intensity_pct = EXCLUDED.low_intensity_pct,
+                    high_intensity_pct = EXCLUDED.high_intensity_pct,
+                    polarization_ok = EXCLUDED.polarization_ok,
+                    computed_at = NOW()
+            """,
+            (user_id, week_start, total,
+             zone_secs[1], zone_secs[2], zone_secs[3], zone_secs[4], zone_secs[5],
+             pct(zone_secs[1]), pct(zone_secs[2]), pct(zone_secs[3]), pct(zone_secs[4]), pct(zone_secs[5]),
+             low_pct, high_pct, low_pct >= 75 and high_pct <= 25)
+        )
+        conn.commit()
+    logger.info("Zonenverteilung für Woche %s gespeichert (Total: %ds)", week_start, total)
+
+
+def _update_neat_baseline(user_id: str) -> None:
+    """Berechnet monatlichen NEAT-Basiswert (Ø tägliche Schritte) und cached in neat_baselines."""
+    from datetime import date
+    today = date.today()
+    month_start = today.replace(day=1).isoformat()
+
+    with get_db_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT ROUND(AVG(steps)) AS avg_steps
+            FROM garmin_raw_metrics
+            WHERE user_id = %s
+              AND metric_date >= %s::date - INTERVAL '30 days'
+              AND metric_date < %s::date
+              AND steps IS NOT NULL
+            """,
+            (user_id, month_start, month_start)
+        )
+        row = cur.fetchone()
+        if not row or row[0] is None:
+            return
+
+        avg_steps = int(row[0])
+        cur.execute(
+            """
+            INSERT INTO neat_baselines (user_id, month_start, avg_daily_steps)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id, month_start) DO UPDATE
+                SET avg_daily_steps = EXCLUDED.avg_daily_steps,
+                    computed_at = NOW()
+            """,
+            (user_id, month_start, avg_steps)
+        )
+        conn.commit()
+    logger.info("NEAT-Baseline für %s: Ø %d Schritte/Tag", month_start, avg_steps)

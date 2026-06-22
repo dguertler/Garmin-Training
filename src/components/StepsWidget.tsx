@@ -4,11 +4,16 @@ interface Props {
   today: number | null
   goal: number
   avg7: number | null
+  neatBaseline?: number | null
+  neatWarning?: boolean
 }
 
-export default function StepsWidget({ today, goal, avg7 }: Props) {
+export default function StepsWidget({ today, goal, avg7, neatBaseline, neatWarning: neatWarnProp }: Props) {
   const pct = today && goal ? Math.min((today / goal) * 100, 100) : 0
-  const neatWarning = avg7 !== null && avg7 < goal * 0.85
+  // NEAT-Warnung: entweder von API (Vormonats-Baseline) oder Fallback auf Ziel-basiert
+  const neatWarning = neatWarnProp !== undefined
+    ? neatWarnProp
+    : (avg7 !== null && avg7 < goal * 0.85)
 
   return (
     <div className="card-sm space-y-3">
@@ -47,9 +52,16 @@ export default function StepsWidget({ today, goal, avg7 }: Props) {
         </span>
       </div>
 
+      {neatBaseline && (
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-slate-400">Vormonats-Baseline</span>
+          <span className="text-slate-400">{neatBaseline.toLocaleString('de')}</span>
+        </div>
+      )}
+
       {neatWarning && (
         <p className="text-xs text-moderate leading-relaxed">
-          Schritt-Mittel mehr als 15% unter Ziel – NEAT-Absenkung kann Plateau verursachen.
+          7T-Mittel &gt;15% unter Vormonats-Baseline – NEAT-Absenkung erhöht Plateau-Risiko.
         </p>
       )}
     </div>

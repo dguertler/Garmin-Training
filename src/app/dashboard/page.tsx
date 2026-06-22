@@ -54,7 +54,7 @@ interface DashboardData {
     sleep_rem_seconds: number | null
     sleep_light_seconds: number | null
   }>
-  steps: { today: number | null; goal: number; avg7: number | null }
+  steps: { today: number | null; goal: number; avg7: number | null; neat_baseline: number | null; neat_warning: boolean }
   weightTrend: Array<{ date: string; weight: number; trend: number | null }>
   weekPlan: Array<Record<string, unknown>>
   syncStatus: Record<string, unknown> | null
@@ -162,6 +162,8 @@ export default function DashboardPage() {
           today={data?.steps.today ?? null}
           goal={data?.steps.goal ?? 8000}
           avg7={data?.steps.avg7 ?? null}
+          neatBaseline={data?.steps.neat_baseline}
+          neatWarning={data?.steps.neat_warning}
         />
         <StatCard label="VO2max" value={g?.vo2max != null ? String(g.vo2max) : '–'} unit="" />
         <StatCard label="Ruhepuls" value={g?.resting_heart_rate != null ? String(g.resting_heart_rate) : '–'} unit="bpm" />

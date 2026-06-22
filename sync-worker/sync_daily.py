@@ -152,6 +152,16 @@ def sync_user_daily(user_id: str, garmin_email: str, garmin_password: str | None
     except Exception as e:
         logger.warning("Post-Workout-Analyse übersprungen: %s", e)
 
+    # ── Readiness cachen ───────────────────────────────────────────────────
+    try:
+        from compute_readiness import compute_and_cache_readiness
+        compute_and_cache_readiness(user_id)
+    except Exception as e:
+        logger.warning("Readiness-Cache übersprungen: %s", e)
+
+    # ── Garmin Index: Körpergewicht auto-importieren ────────────────────────
+    _import_garmin_body_weight(user_id, parsed, today)
+
     success_count = sum(1 for v in results.values() if v == "ok")
     _finish_job(job_id, "success" if not errors else "partial",
                 len(results), success_count, errors if errors else None, last_activity_id)
@@ -280,6 +290,46 @@ def _parse_daily(data: dict, today: str) -> dict:
     p["stats_and_body_raw"] = json.dumps(data.get("stats_and_body") or {})
 
     return p
+
+
+def _import_garmin_body_weight(user_id: str, parsed: dict, today: str) -> None:
+    """
+    Importiert Garmin Index Scale Daten automatisch in daily_input,
+    sofern noch kein manueller Eintrag für heute existiert.
+    Garmin Index liefert Gewicht + KFA über body_composition / daily_weigh_ins.
+    """
+    weight_garmin = parsed.get("body_weight_garmin")
+    fat_garmin = parsed.get("body_fat_percent_garmin")
+
+    if not weight_garmin:
+        return  # Keine Garmin Waage vorhanden oder kein Eintrag heute
+
+    # Nur wenn noch kein manueller Eintrag
+    with get_db_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM daily_input WHERE user_id = %s AND entry_date = %s",
+            (user_id, today)
+        )
+        if cur.fetchone():
+            return  # Manueller Eintrag hat Vorrang
+
+        # Gewicht in kg umrechnen (Garmin liefert Gramm)
+        weight_kg = float(weight_garmin) / 1000 if float(weight_garmin) > 500 else float(weight_garmin)
+        body_fat = float(fat_garmin) if fat_garmin else None
+
+        try:
+            cur.execute(
+                """INSERT INTO daily_input (user_id, entry_date, weight_kg, body_fat_pct, source)
+                   VALUES (%s, %s, %s, %s, 'garmin_index')
+                   ON CONFLICT (user_id, entry_date) DO NOTHING""",
+                (user_id, today, round(weight_kg, 2), round(body_fat, 1) if body_fat else None)
+            )
+            conn.commit()
+            logger.info("Garmin Index: %.1f kg (%.1f%% KFA) für %s importiert",
+                        weight_kg, body_fat or 0, today)
+        except Exception as e:
+            logger.warning("Garmin Index Import fehlgeschlagen: %s", e)
+            conn.rollback()
 
 
 def _nested(obj, *keys):

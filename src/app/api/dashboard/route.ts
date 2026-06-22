@@ -132,6 +132,14 @@ export async function GET(req: NextRequest) {
         .reduce((s, r) => s + (r.steps_total ?? 0), 0) / steps7.length)
     : null
 
+  // NEAT-Baseline (Vormonat) für Warnsystem
+  const neatBaseline = await queryOne<{ avg_daily_steps: number }>(
+    `SELECT avg_daily_steps FROM neat_baselines
+     WHERE user_id = $1 AND month_start < date_trunc('month', CURRENT_DATE)
+     ORDER BY month_start DESC LIMIT 1`,
+    [userId]
+  )
+
   // Gewichts-Trend berechnen
   const weightForTrend = [...weightHistory].reverse().map(r => ({
     date: (r as { date: string }).date,
@@ -161,6 +169,10 @@ export async function GET(req: NextRequest) {
       today: (steps7[0] as { steps_total?: number } | undefined)?.steps_total ?? null,
       goal: (steps7[0] as { steps_goal?: number } | undefined)?.steps_goal ?? 8000,
       avg7: stepsAvg7,
+      neat_baseline: neatBaseline?.avg_daily_steps ?? null,
+      neat_warning: stepsAvg7 !== null && neatBaseline?.avg_daily_steps
+        ? stepsAvg7 < neatBaseline.avg_daily_steps * 0.85
+        : false,
     },
     weightTrend: weightTrend.slice(-14),
     weekPlan: fullWeekPlan,

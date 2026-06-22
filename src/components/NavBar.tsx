@@ -9,6 +9,7 @@ const NAV = [
   { href: '/strength',   label: 'Training',  icon: '💪' },
   { href: '/nutrition',  label: 'Ernährung', icon: '🥗' },
   { href: '/trends',     label: 'Trends',    icon: '📈' },
+  { href: '/settings',   label: 'Setup',     icon: '⚙️' },
 ]
 
 export default function NavBar({ userName }: { userName?: string }) {

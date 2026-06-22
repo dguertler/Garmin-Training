@@ -50,26 +50,25 @@ export async function GET() {
       week_start: string
       endurance_score: number | null
       hill_score: number | null
-      max_avg_power: number | null
     }>(
-      `SELECT week_start, endurance_score, hill_score, max_avg_power
+      `SELECT week_start_date AS week_start, endurance_score, hill_score
        FROM garmin_weekly_metrics
-       WHERE user_id = $1 AND week_start >= CURRENT_DATE - INTERVAL '90 days'
-       ORDER BY week_start ASC`,
+       WHERE user_id = $1 AND week_start_date >= CURRENT_DATE - INTERVAL '90 days'
+       ORDER BY week_start_date ASC`,
       [userId]
     ),
-    // Race Predictions (aktuellste pro Distanz)
-    query<{
-      distance_label: string
-      predicted_time_seconds: number
-      race_date: string
-      vo2_max_estimate: number | null
+    // Race Predictions (aktuellste)
+    queryOne<{
+      pred_5k_seconds: number | null
+      pred_10k_seconds: number | null
+      pred_hm_seconds: number | null
+      pred_marathon_seconds: number | null
+      recorded_date: string
     }>(
-      `SELECT DISTINCT ON (distance_label)
-              distance_label, predicted_time_seconds, race_date, vo2_max_estimate
+      `SELECT pred_5k_seconds, pred_10k_seconds, pred_hm_seconds, pred_marathon_seconds, recorded_date
        FROM garmin_race_predictions
        WHERE user_id = $1
-       ORDER BY distance_label, race_date DESC`,
+       ORDER BY recorded_date DESC LIMIT 1`,
       [userId]
     ),
   ])
@@ -95,11 +94,19 @@ export async function GET() {
     ? Math.round((vo2Current - vo2FourWeeksAgo) * 10) / 10
     : null
 
+  // Race predictions in einheitliches Format umwandeln
+  const formattedPredictions = racePredictions ? [
+    { distance_label: '5K',          predicted_time_seconds: racePredictions.pred_5k_seconds,       race_date: racePredictions.recorded_date },
+    { distance_label: '10K',         predicted_time_seconds: racePredictions.pred_10k_seconds,      race_date: racePredictions.recorded_date },
+    { distance_label: 'Halbmarathon',predicted_time_seconds: racePredictions.pred_hm_seconds,       race_date: racePredictions.recorded_date },
+    { distance_label: 'Marathon',    predicted_time_seconds: racePredictions.pred_marathon_seconds, race_date: racePredictions.recorded_date },
+  ].filter(p => p.predicted_time_seconds !== null) : []
+
   return NextResponse.json({
     garmin_trend: garminTrend,
     weight_trend: weightWithTrend,
     weekly_metrics: weeklyMetrics,
-    race_predictions: racePredictions,
+    race_predictions: formattedPredictions,
     summary: {
       vo2_max_current: latest?.vo2_max ?? null,
       vo2_max_delta_4w: vo2Delta,
