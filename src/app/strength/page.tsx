@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import StrengthLogger from '@/components/StrengthLogger'
+import PolarizedZonesChart from '@/components/PolarizedZonesChart'
 
 const TYPES = [
   { key: 'push' as const, label: 'Push',           icon: '🤸', desc: 'Brust · Schulter · Trizeps' },
@@ -58,7 +60,14 @@ export default function StrengthPage() {
       </div>
 
       {/* Progressions-Ladder Übersicht */}
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-slate-200">Progressionslevel</h2>
+        <Link href="/strength/progression" className="text-xs text-prime hover:underline">Vollständige Leiter →</Link>
+      </div>
       <ProgressionOverview />
+
+      {/* 80/20 Zonenverteilung */}
+      <PolarizedZonesChart />
     </div>
   )
 }

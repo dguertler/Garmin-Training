@@ -145,6 +145,13 @@ def sync_user_daily(user_id: str, garmin_email: str, garmin_password: str | None
 
     last_activity_id = _sync_new_activities(client, user_id, job_id)
 
+    # ── Post-Workout-Analysen ──────────────────────────────────────────────
+    try:
+        from post_workout_analysis import analyze_recent_unanalyzed
+        analyze_recent_unanalyzed(user_id, limit=10)
+    except Exception as e:
+        logger.warning("Post-Workout-Analyse übersprungen: %s", e)
+
     success_count = sum(1 for v in results.values() if v == "ok")
     _finish_job(job_id, "success" if not errors else "partial",
                 len(results), success_count, errors if errors else None, last_activity_id)

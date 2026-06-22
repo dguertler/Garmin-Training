@@ -2,11 +2,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
+import ProfileSwitcher from '@/components/ProfileSwitcher'
 
 const NAV = [
   { href: '/dashboard',  label: 'Dashboard', icon: '📊' },
   { href: '/strength',   label: 'Training',  icon: '💪' },
   { href: '/nutrition',  label: 'Ernährung', icon: '🥗' },
+  { href: '/trends',     label: 'Trends',    icon: '📈' },
 ]
 
 export default function NavBar({ userName }: { userName?: string }) {
@@ -40,10 +42,8 @@ export default function NavBar({ userName }: { userName?: string }) {
         </div>
 
         {/* User */}
-        <div className="flex items-center gap-3">
-          {userName && (
-            <span className="text-xs text-slate-400 hidden sm:block">{userName}</span>
-          )}
+        <div className="flex items-center gap-2">
+          <ProfileSwitcher />
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
             className="text-xs text-slate-500 hover:text-slate-300 transition-colors"

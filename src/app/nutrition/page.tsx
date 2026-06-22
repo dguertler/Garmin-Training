@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import MealPlan from '@/components/MealPlan'
 import DailyInputModal from '@/components/DailyInputModal'
 
@@ -55,9 +56,12 @@ export default function NutritionPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-100">Ernährung</h1>
-        <button onClick={() => setShowInput(true)} className="btn-primary text-sm">
-          Gewicht eingeben
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/nutrition/templates" className="btn-ghost text-sm">Templates</Link>
+          <button onClick={() => setShowInput(true)} className="btn-primary text-sm">
+            Gewicht eingeben
+          </button>
+        </div>
       </div>
 
       {/* Tages-Stats */}

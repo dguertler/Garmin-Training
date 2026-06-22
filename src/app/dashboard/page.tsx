@@ -9,6 +9,8 @@ import StepsWidget from '@/components/StepsWidget'
 import WeekPlanCard from '@/components/WeekPlanCard'
 import SyncStatus from '@/components/SyncStatus'
 import DailyInputModal from '@/components/DailyInputModal'
+import TDEECalibration from '@/components/TDEECalibration'
+import DeloadCountdown from '@/components/DeloadCountdown'
 
 interface DashboardData {
   today: string
@@ -182,6 +184,12 @@ export default function DashboardPage() {
           {g.gear_name} · {g.distance_km} km ({'>'}90% Limit)
         </div>
       ))}
+
+      {/* Deload-Countdown + TDEE-Kalibrierung */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <DeloadCountdown />
+        <TDEECalibration />
+      </div>
 
       {/* Daily Input Modal */}
       {showInput && (
