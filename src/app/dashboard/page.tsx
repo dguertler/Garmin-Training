@@ -58,6 +58,7 @@ interface DashboardData {
   steps: { today: number | null; goal: number; avg7: number | null; neat_baseline: number | null; neat_warning: boolean }
   weightTrend: Array<{ date: string; weight: number; trend: number | null }>
   weekPlan: Array<Record<string, unknown>>
+  concurrent_warning: string | null
   syncStatus: Record<string, unknown> | null
   gear: Array<{ gear_name: string; distance_km: number; warning: boolean }>
 }
@@ -189,6 +190,14 @@ export default function DashboardPage() {
         <StatCard label="Ruhepuls" value={g?.resting_heart_rate != null ? String(g.resting_heart_rate) : '–'} unit="bpm" />
         <StatCard label="Fitness-Alter" value={g?.fitness_age != null ? String(g.fitness_age) : '–'} unit="J" />
       </div>
+
+      {/* Concurrent-Training-Warnung */}
+      {data?.concurrent_warning && (
+        <div className="card border-amber-500/40 bg-amber-500/5 text-sm text-amber-300">
+          <span className="font-semibold">Concurrent Training: </span>
+          {data.concurrent_warning}
+        </div>
+      )}
 
       {/* Wochenplan */}
       <WeekPlanCard days={data?.weekPlan as Parameters<typeof WeekPlanCard>[0]['days'] ?? []} />

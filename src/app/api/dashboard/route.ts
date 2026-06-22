@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { query, queryOne } from '@/lib/db'
-import { classifyReadiness, getReadinessColor, getScheduledWorkout } from '@/lib/readiness'
+import { classifyReadiness, getReadinessColor, getScheduledWorkout, checkConcurrentTraining } from '@/lib/readiness'
 import { calcWeightTrend } from '@/lib/nutrition'
 
 
@@ -147,6 +147,18 @@ export async function GET(req: NextRequest) {
   }))
   const weightTrend = calcWeightTrend(weightForTrend)
 
+  // Concurrent-Training-Prüfung
+  const concurrentWarning = checkConcurrentTraining(
+    fullWeekPlan.map(d => ({
+      plan_date: (d as { plan_date: string }).plan_date,
+      recommended_workout_type:
+        (d as { recommended_workout_type?: string; scheduled_workout_type?: string })
+          .recommended_workout_type
+        ?? (d as { scheduled_workout_type?: string }).scheduled_workout_type
+        ?? 'rest',
+    }))
+  )
+
   // Readiness-Score ableiten
   const readinessScore = (readiness as { readiness_score?: number } | null)?.readiness_score
     ?? (garmin as { training_readiness_score?: number } | null)?.training_readiness_score
@@ -176,6 +188,7 @@ export async function GET(req: NextRequest) {
     },
     weightTrend: weightTrend.slice(-14),
     weekPlan: fullWeekPlan,
+    concurrent_warning: concurrentWarning.warning ? concurrentWarning.reason : null,
     syncStatus,
     gear: (gear as Array<{ distance_meters: number; max_distance_meters: number }>).map(g => ({
       ...g,

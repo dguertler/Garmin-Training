@@ -5,6 +5,12 @@ import Providers from '@/components/Providers'
 export const metadata: Metadata = {
   title: 'Garmin Training Dashboard',
   description: 'Readiness-gesteuertes Training & Ernährungs-Dashboard',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Training',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

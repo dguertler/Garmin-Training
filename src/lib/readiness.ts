@@ -145,3 +145,32 @@ export function shouldTriggerDeload(
   }
   return { trigger: false, reason: '' }
 }
+
+// Concurrent-Training-Konflikt: Zone2 + Kraft am selben oder aufeinanderfolgenden Tag
+const STRENGTH_TYPES = new Set(['push', 'pull', 'legs', 'push_reduced', 'pull_reduced', 'legs_reduced'])
+const CARDIO_TYPES = new Set(['zone2_run', 'zone2_run_reduced'])
+
+export function checkConcurrentTraining(
+  weekPlan: Array<{ plan_date: string; recommended_workout_type: string }>
+): { warning: boolean; reason: string } {
+  for (let i = 0; i < weekPlan.length - 1; i++) {
+    const a = weekPlan[i].recommended_workout_type
+    const b = weekPlan[i + 1].recommended_workout_type
+    const sameDay = weekPlan[i].plan_date === weekPlan[i + 1].plan_date
+    const consecutive = !sameDay
+
+    if ((STRENGTH_TYPES.has(a) && CARDIO_TYPES.has(b)) ||
+        (CARDIO_TYPES.has(a) && STRENGTH_TYPES.has(b))) {
+      const dates = sameDay
+        ? `am ${new Date(weekPlan[i].plan_date).toLocaleDateString('de-DE', { weekday: 'long' })}`
+        : `${new Date(weekPlan[i].plan_date).toLocaleDateString('de-DE', { weekday: 'short' })} + ${new Date(weekPlan[i + 1].plan_date).toLocaleDateString('de-DE', { weekday: 'short' })}`
+      if (sameDay || consecutive) {
+        return {
+          warning: true,
+          reason: `Concurrent Training erkannt (${dates}): Zone-2 und Kraft innerhalb 24h beeinträchtigen AMPK/mTOR-Balance. Zone-2 am Ruhetag empfohlen.`,
+        }
+      }
+    }
+  }
+  return { warning: false, reason: '' }
+}
