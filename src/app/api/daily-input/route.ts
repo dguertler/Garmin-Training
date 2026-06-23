@@ -109,8 +109,10 @@ export async function GET(req: NextRequest) {
 
   const [today, history] = await Promise.all([
     queryOne(
-      `SELECT di.*, nt.calories_target, nt.protein_target_g, nt.carbs_target_g,
-              nt.fat_target_g, nt.meal_plan, nt.tdee_kcal, nt.bmr_kcal, nt.lean_mass_kg
+      `SELECT di.entry_date, di.weight_kg, di.body_fat_pct, di.lean_mass_kg, di.bmr_kcal,
+              di.notes, di.alcohol_units,
+              nt.calories_target, nt.protein_target_g, nt.carbs_target_g,
+              nt.fat_target_g, nt.meal_plan, nt.tdee_kcal, nt.is_training_day, nt.is_refeed_day
        FROM daily_input di
        LEFT JOIN nutrition_targets nt ON nt.user_id = di.user_id AND nt.target_date = di.entry_date
        WHERE di.user_id = $1 AND di.entry_date = $2`,

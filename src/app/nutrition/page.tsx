@@ -34,12 +34,23 @@ export default function NutritionPage() {
   const [data, setData] = useState<NutritionData | null>(null)
   const [showInput, setShowInput] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/daily-input')
-      setData(await res.json())
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(`API-Fehler ${res.status}: ${text.slice(0, 200)}`)
+      }
+      const json = await res.json()
+      setData(json)
+    } catch (e) {
+      console.error('Ernährungsdaten konnten nicht geladen werden:', e)
+      setError(e instanceof Error ? e.message : String(e))
+      setData(null)
     } finally {
       setLoading(false)
     }
@@ -50,6 +61,17 @@ export default function NutritionPage() {
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="text-slate-400 animate-pulse">Lade Ernährungsdaten…</div>
+    </div>
+  )
+
+  if (error) return (
+    <div className="space-y-5">
+      <h1 className="text-xl font-bold text-slate-100">Ernährung</h1>
+      <div className="card space-y-3">
+        <p className="text-red-400 font-semibold">Fehler beim Laden</p>
+        <p className="text-slate-400 text-sm font-mono break-all">{error}</p>
+        <button onClick={load} className="btn-primary text-sm">Erneut versuchen</button>
+      </div>
     </div>
   )
 
