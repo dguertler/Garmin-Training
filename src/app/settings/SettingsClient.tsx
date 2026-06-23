@@ -478,6 +478,18 @@ export default function SettingsClient() {
             </a>
           ))}
         </div>
+        <div className="pt-1 border-t border-white/5">
+          <a
+            href="/api/export/full"
+            download
+            className="text-xs px-3 py-1.5 rounded-lg border border-prime/30 text-prime hover:border-prime/60 transition-all inline-block"
+          >
+            Vollständiger JSON-Export (ZIP) ↓
+          </a>
+          <p className="text-xs text-slate-500 mt-1">
+            Enthält alle Daten: Profil, Gewicht, Readiness, Training, Mahlzeiten, Garmin-Metriken
+          </p>
+        </div>
       </div>
 
       {/* Quicklinks */}
