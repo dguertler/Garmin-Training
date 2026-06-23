@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
 import { query, queryOne } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
