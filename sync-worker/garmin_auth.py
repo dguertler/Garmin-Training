@@ -103,20 +103,20 @@ def get_garmin_client(user_id: str, garmin_email: str, garmin_password: str | No
     with tempfile.TemporaryDirectory() as tmpdir:
         garth_home = Path(tmpdir)
 
-        if tokens:
+        oauth1 = tokens.get("oauth1", {}) if tokens else {}
+        oauth2 = tokens.get("oauth2", {}) if tokens else {}
+        has_valid_tokens = bool(oauth1.get("oauth_token") and oauth1.get("oauth_token_secret"))
+
+        if has_valid_tokens:
             # Token-Daten ins temporäre garth-Home schreiben
-            (garth_home / "oauth1_token.json").write_text(
-                json.dumps(tokens.get("oauth1", {}))
-            )
-            (garth_home / "oauth2_token.json").write_text(
-                json.dumps(tokens.get("oauth2", {}))
-            )
+            (garth_home / "oauth1_token.json").write_text(json.dumps(oauth1))
+            (garth_home / "oauth2_token.json").write_text(json.dumps(oauth2))
             garth.configure(domain="garmin.com")
             garth.resume(str(garth_home))
             client = Garmin()
         else:
             if not garmin_password:
-                raise ValueError(f"Kein Token für user {user_id} und kein Passwort übergeben.")
+                raise ValueError(f"Kein gültiger Token für user {user_id} und kein Passwort übergeben.")
             logger.info("Erstmaligen Login für user %s durchführen …", user_id)
             client = Garmin(garmin_email, garmin_password)
             client.login()
