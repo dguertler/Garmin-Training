@@ -4,7 +4,6 @@ const nextConfig = {
     serverComponentsExternalPackages: ['pg', 'web-push'],
   },
   typescript: {
-    // Erlaubt Deployment auch wenn TS-Fehler vorhanden sind
     ignoreBuildErrors: true,
   },
   eslint: {
