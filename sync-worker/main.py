@@ -107,7 +107,7 @@ def main():
     )
 
     # HTTP-Server für manuellen Trigger (Next.js → POST /sync/trigger)
-    start_web_server(port=int(os.environ.get("WORKER_PORT", "8001")))
+    start_web_server(port=int(os.environ.get("PORT", "8001")))
 
     logger.info(
         "Scheduler gestartet. Täglich 09:00 Europe/Berlin, Montags zusätzlich 09:30."

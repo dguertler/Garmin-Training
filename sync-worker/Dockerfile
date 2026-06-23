@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 ENV PYTHONUNBUFFERED=1
-ENV WORKER_PORT=8001
+ENV PORT=8001
 
 EXPOSE 8001
 
