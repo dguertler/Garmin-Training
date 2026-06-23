@@ -124,15 +124,18 @@ export default function SettingsClient() {
   // Manual sync
   const [syncRunning, setSyncRunning] = useState(false)
   const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null)
+  const [syncResult, setSyncResult] = useState<{ status: 'success' | 'error' | 'partial'; errors?: Record<string, string> } | null>(null)
   const syncPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   async function handleManualSync() {
     setSyncRunning(true)
     setSyncProgress(null)
+    setSyncResult(null)
     const res = await fetch('/api/sync/trigger', { method: 'POST' })
     const json = await res.json()
     if (!res.ok && res.status !== 409) {
       setSyncRunning(false)
+      setSyncResult({ status: 'error', errors: { allgemein: json.error ?? 'Sync konnte nicht gestartet werden' } })
       return
     }
     const jobId = json.job_id
@@ -142,7 +145,7 @@ export default function SettingsClient() {
     syncPollRef.current = setInterval(async () => {
       const r = await fetch('/api/sync/trigger')
       const d = await r.json()
-      const job = d.jobs?.find((j: { id: string; status: string; endpoints_total: number; endpoints_success: number }) => j.id === jobId)
+      const job = d.jobs?.find((j: { id: string; status: string; endpoints_total: number; endpoints_success: number; error_details?: Record<string, string> }) => j.id === jobId)
       if (!job) return
       if (job.endpoints_total > 0) {
         setSyncProgress({ done: job.endpoints_success, total: job.endpoints_total })
@@ -150,6 +153,13 @@ export default function SettingsClient() {
       if (job.status !== 'running') {
         clearInterval(syncPollRef.current!)
         setSyncRunning(false)
+        if (job.status === 'error') {
+          setSyncResult({ status: 'error', errors: job.error_details ?? { allgemein: 'Sync fehlgeschlagen' } })
+        } else if (job.status === 'partial') {
+          setSyncResult({ status: 'partial', errors: job.error_details })
+        } else {
+          setSyncResult({ status: 'success' })
+        }
       }
     }, 2000)
   }
@@ -537,28 +547,60 @@ export default function SettingsClient() {
         )}
 
         {garminStatus?.connected && (
-          <div className="space-y-2 pt-2 border-t border-white/5">
+          <div className="space-y-3 pt-2 border-t border-white/5">
             <button
               onClick={handleManualSync}
               disabled={syncRunning}
-              className="btn-primary w-full"
+              className="btn-primary w-full flex items-center justify-center gap-2"
             >
-              {syncRunning ? 'Sync läuft…' : 'Manuell synchronisieren'}
+              {syncRunning ? (
+                <>
+                  <span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Garmin-Daten werden synchronisiert…
+                </>
+              ) : '🔄 Garmin-Daten jetzt abrufen'}
             </button>
+
             {syncRunning && (
               <div className="space-y-1">
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>Daten werden abgerufen…</span>
+                  <span>Endpunkte werden abgefragt…</span>
                   {syncProgress && (
-                    <span>{syncProgress.done} / {syncProgress.total} ({Math.round(syncProgress.done / syncProgress.total * 100)}%)</span>
+                    <span className="font-medium text-slate-300">
+                      {syncProgress.done} / {syncProgress.total} ({Math.round(syncProgress.done / syncProgress.total * 100)}%)
+                    </span>
                   )}
                 </div>
-                <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-prime h-1.5 rounded-full transition-all duration-500"
+                    className="bg-prime h-2 rounded-full transition-all duration-500"
                     style={{ width: syncProgress ? `${Math.round(syncProgress.done / syncProgress.total * 100)}%` : '5%' }}
                   />
                 </div>
+              </div>
+            )}
+
+            {syncResult && !syncRunning && (
+              <div className={`rounded-lg px-3 py-2 text-xs space-y-1 ${
+                syncResult.status === 'success' ? 'bg-prime/10 border border-prime/20' :
+                syncResult.status === 'partial' ? 'bg-amber-500/10 border border-amber-500/20' :
+                'bg-red-500/10 border border-red-500/20'
+              }`}>
+                <p className={`font-medium ${
+                  syncResult.status === 'success' ? 'text-prime' :
+                  syncResult.status === 'partial' ? 'text-amber-400' : 'text-red-400'
+                }`}>
+                  {syncResult.status === 'success' && '✓ Sync erfolgreich — alle Garmin-Daten wurden abgerufen'}
+                  {syncResult.status === 'partial' && '⚠ Sync teilweise erfolgreich — einige Endpunkte fehlgeschlagen'}
+                  {syncResult.status === 'error' && '✕ Sync fehlgeschlagen'}
+                </p>
+                {syncResult.errors && Object.entries(syncResult.errors).length > 0 && (
+                  <div className="space-y-0.5 text-slate-400 mt-1">
+                    {Object.entries(syncResult.errors).map(([k, v]) => (
+                      <div key={k}><span className="text-slate-300">{k}:</span> {v}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
