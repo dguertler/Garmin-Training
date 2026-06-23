@@ -121,6 +121,39 @@ export default function SettingsClient() {
   const [garminMsg, setGarminMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Manual sync
+  const [syncRunning, setSyncRunning] = useState(false)
+  const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null)
+  const syncPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  async function handleManualSync() {
+    setSyncRunning(true)
+    setSyncProgress(null)
+    const res = await fetch('/api/sync/trigger', { method: 'POST' })
+    const json = await res.json()
+    if (!res.ok && res.status !== 409) {
+      setSyncRunning(false)
+      return
+    }
+    const jobId = json.job_id
+    if (!jobId) { setSyncRunning(false); return }
+
+    if (syncPollRef.current) clearInterval(syncPollRef.current)
+    syncPollRef.current = setInterval(async () => {
+      const r = await fetch('/api/sync/trigger')
+      const d = await r.json()
+      const job = d.jobs?.find((j: { id: string; status: string; endpoints_total: number; endpoints_success: number }) => j.id === jobId)
+      if (!job) return
+      if (job.endpoints_total > 0) {
+        setSyncProgress({ done: job.endpoints_success, total: job.endpoints_total })
+      }
+      if (job.status !== 'running') {
+        clearInterval(syncPollRef.current!)
+        setSyncRunning(false)
+      }
+    }, 2000)
+  }
+
   useEffect(() => {
     fetch('/api/profile').then(r => r.json()).then((d: ProfileData) => {
       setData(d)
@@ -502,6 +535,34 @@ export default function SettingsClient() {
             {garminMsg.text}
           </p>
         )}
+
+        {garminStatus?.connected && (
+          <div className="space-y-2 pt-2 border-t border-white/5">
+            <button
+              onClick={handleManualSync}
+              disabled={syncRunning}
+              className="btn-primary w-full"
+            >
+              {syncRunning ? 'Sync läuft…' : 'Manuell synchronisieren'}
+            </button>
+            {syncRunning && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Daten werden abgerufen…</span>
+                  {syncProgress && (
+                    <span>{syncProgress.done} / {syncProgress.total} ({Math.round(syncProgress.done / syncProgress.total * 100)}%)</span>
+                  )}
+                </div>
+                <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-prime h-1.5 rounded-full transition-all duration-500"
+                    style={{ width: syncProgress ? `${Math.round(syncProgress.done / syncProgress.total * 100)}%` : '5%' }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Speichern */}
@@ -606,27 +667,28 @@ export default function SettingsClient() {
         <h2 className="font-semibold text-slate-200">Begriffserklärungen</h2>
         <div className="space-y-3 text-xs">
           {[
-            { term: 'TDEE', desc: 'Gesamter Tagesverbrauch (Total Daily Energy Expenditure) — alle Kalorien die dein Körper täglich verbraucht: Grundumsatz + Bewegung + Alltagsaktivität.' },
-            { term: 'BMR', desc: 'Grundumsatz (Basal Metabolic Rate) — Kalorien die dein Körper im Ruhezustand verbraucht, berechnet aus Magermasse.' },
-            { term: 'NEAT', desc: 'Alltagsbewegung (Non-Exercise Activity Thermogenesis) — Kalorienverbrauch durch Schritte und unbewusste Bewegung, nicht durch Sport.' },
-            { term: 'KFA', desc: 'Körperfettanteil in Prozent — Anteil des Körperfetts am Gesamtgewicht.' },
-            { term: 'HRV', desc: 'Herzratenvariabilität (Heart Rate Variability) — Schwankung zwischen Herzschlägen. Hoher Wert = gute Erholung, niedriger Wert = Stress/Erschöpfung.' },
-            { term: 'LTHR', desc: 'Laktatschwellen-Herzfrequenz (Lactate Threshold Heart Rate) — HF an der Grenze zwischen aerobem und anaerobem Training. Basis für die 5 Trainingszonen.' },
-            { term: 'Zone 2', desc: 'Aerobe Ausdauerzone (60–72% LTHR) — niedriger Puls, lange Dauer. Baut aerobe Basis auf, fördert Fettverbrennung, geringe Erholungsbelastung.' },
-            { term: 'VO2max', desc: 'Maximale Sauerstoffaufnahme — Maß für aerobe Fitness. Höherer Wert = bessere Ausdauer.' },
-            { term: 'Readiness', desc: 'Trainingsbereitschaft (0–100) — Garmin-Score basierend auf HRV, Schlaf, Body Battery und Erholungszeit. Steuert die Trainingsempfehlungen.' },
-            { term: 'Body Battery', desc: 'Energiereserve (0–100) — Garmin-Schätzung deines Energielevels basierend auf HRV, Schlaf und Stresslevel.' },
-            { term: 'Deload', desc: 'Entlastungswoche — bewusst reduziertes Trainingsvolumen/-intensität zur Regeneration, alle 4–6 Wochen empfohlen.' },
-            { term: 'RIR', desc: 'Reps in Reserve — wie viele Wiederholungen du noch hättest machen können. RIR 2 = 2 Wdh vor dem Versagen.' },
-            { term: 'Cut', desc: 'Abnehmphase — Kaloriendefizit (~20% unter TDEE) zum Abbau von Körperfett bei Muskelerhalt.' },
-            { term: 'Bulk', desc: 'Aufbauphase — Kalorienüberschuss (~10% über TDEE) zum Muskelaufbau.' },
-            { term: 'Maintenance', desc: 'Erhaltungsphase — Kalorienzufuhr entspricht TDEE, Gewicht bleibt stabil.' },
-            { term: 'Baseline Building', desc: 'Aufbauphase für aerobe Basis — Zone-2-Fokus ohne Deload-Trigger. Empfohlen für Einsteiger oder nach längerer Pause.' },
-            { term: 'Polarisiertes Training', desc: '80/20-Regel — 80% des Trainings in Zone 1–2 (locker), 20% in Zone 4–5 (hart). Zone 3 (Tempo) wird bewusst vermieden.' },
-            { term: 'Pa:HR (Aerobic Decoupling)', desc: 'Entkopplungsrate — misst wie stark Herzfrequenz und Pace/Leistung im Laufe einer Einheit auseinanderlaufen. <5% = gute Ausdauerbasis.' },
-          ].map(({ term, desc }) => (
+            { term: 'Gesamter Tagesverbrauch', abbr: 'TDEE', desc: 'Alle Kalorien die dein Körper täglich verbraucht: Grundumsatz + Bewegung + Alltagsaktivität.' },
+            { term: 'Grundumsatz', abbr: 'BMR', desc: 'Kalorien die dein Körper im Ruhezustand verbraucht, berechnet aus Magermasse.' },
+            { term: 'Alltagsbewegung', abbr: 'NEAT', desc: 'Kalorienverbrauch durch Schritte und unbewusste Bewegung, nicht durch gezielten Sport.' },
+            { term: 'Körperfettanteil', abbr: 'KFA', desc: 'Anteil des Körperfetts am Gesamtgewicht in Prozent.' },
+            { term: 'Herzratenvariabilität', abbr: 'HRV', desc: 'Schwankung zwischen Herzschlägen. Hoher Wert = gute Erholung, niedriger Wert = Stress/Erschöpfung.' },
+            { term: 'Laktatschwellen-Herzfrequenz', abbr: 'LTHR', desc: 'Herzfrequenz an der Grenze zwischen aerobem und anaerobem Training. Basis für die 5 Trainingszonen.' },
+            { term: 'Aerobe Ausdauerzone', abbr: 'Zone 2', desc: '60–72% LTHR — niedriger Puls, lange Dauer. Baut aerobe Basis auf, fördert Fettverbrennung, geringe Erholungsbelastung.' },
+            { term: 'Maximale Sauerstoffaufnahme', abbr: 'VO2max', desc: 'Maß für aerobe Fitness. Höherer Wert = bessere Ausdauer.' },
+            { term: 'Trainingsbereitschaft', abbr: 'Readiness', desc: 'Garmin-Score 0–100 basierend auf HRV, Schlaf, Body Battery und Erholungszeit. Steuert die Trainingsempfehlungen.' },
+            { term: 'Energiereserve', abbr: 'Body Battery', desc: 'Garmin-Schätzung deines Energielevels 0–100, basierend auf HRV, Schlaf und Stresslevel.' },
+            { term: 'Entlastungswoche', abbr: 'Deload', desc: 'Bewusst reduziertes Trainingsvolumen/-intensität zur Regeneration, alle 4–6 Wochen empfohlen.' },
+            { term: 'Verbleibende Wiederholungen', abbr: 'RIR', desc: 'Wie viele Wiederholungen du noch hättest machen können. RIR 2 = 2 Wdh vor dem Versagen.' },
+            { term: 'Abnehmphase', abbr: 'Cut', desc: 'Kaloriendefizit (~20% unter TDEE) zum Abbau von Körperfett bei Muskelerhalt.' },
+            { term: 'Aufbauphase', abbr: 'Bulk', desc: 'Kalorienüberschuss (~10% über TDEE) zum Muskelaufbau.' },
+            { term: 'Erhaltungsphase', abbr: 'Maintenance', desc: 'Kalorienzufuhr entspricht TDEE, Gewicht bleibt stabil.' },
+            { term: 'Aerobe Basisphase', abbr: 'Baseline Building', desc: 'Zone-2-Fokus ohne Deload-Trigger. Empfohlen für Einsteiger oder nach längerer Pause.' },
+            { term: 'Polarisiertes Training', abbr: '80/20-Regel', desc: '80% des Trainings in Zone 1–2 (locker), 20% in Zone 4–5 (hart). Zone 3 (Tempo) wird bewusst vermieden.' },
+            { term: 'Entkopplungsrate', abbr: 'Pa:HR', desc: 'Misst wie stark Herzfrequenz und Pace im Laufe einer Einheit auseinanderlaufen. Unter 5% = gute Ausdauerbasis.' },
+          ].map(({ term, abbr, desc }) => (
             <div key={term} className="border-b border-white/5 pb-2 last:border-0 last:pb-0">
-              <span className="font-medium text-slate-200">{term}</span>
+              <span className="font-medium text-slate-200">{term} </span>
+              <span className="text-slate-500">({abbr})</span>
               <p className="text-slate-400 mt-0.5">{desc}</p>
             </div>
           ))}
