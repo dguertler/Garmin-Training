@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_post_workout_user
 -- Index für Trends-Abfragen auf garmin_raw_metrics
 CREATE INDEX IF NOT EXISTS idx_garmin_raw_vo2_hr
     ON garmin_raw_metrics(user_id, metric_date DESC)
-    WHERE vo2_max IS NOT NULL OR resting_heart_rate IS NOT NULL;
+    WHERE vo2max IS NOT NULL OR resting_heart_rate IS NOT NULL;
 
 -- Index für Aktivitätstyp-basierte Suche (prev similar activity)
 CREATE INDEX IF NOT EXISTS idx_garmin_activities_user_type
