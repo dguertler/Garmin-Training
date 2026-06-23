@@ -46,8 +46,8 @@ export async function GET(req: NextRequest) {
        WHERE user_id = $1 AND metric_date = $2`,
       [userId, date]
     ),
-    queryOne<{ current_phase: string; weeks_since_deload: number; hrv_baseline_established: boolean }>(
-      'SELECT current_phase, weeks_since_deload, hrv_baseline_established FROM user_profiles WHERE user_id = $1',
+    queryOne<{ current_phase: string; weeks_since_deload: number; hrv_baseline_established: boolean; sex: string | null }>(
+      'SELECT current_phase, weeks_since_deload, hrv_baseline_established, sex FROM user_profiles WHERE user_id = $1',
       [userId]
     ),
     query<{ metric_date: string; training_readiness_score: number | null }>(
@@ -71,9 +71,10 @@ export async function GET(req: NextRequest) {
   const score = raw?.training_readiness_score ?? null
   const level = classifyReadiness(score)
   const color = getReadinessColor(level)
-  const scheduled = getScheduledWorkout(new Date(date))
+  const currentPhase = profile?.current_phase ?? 'cut'
+  const scheduled = getScheduledWorkout(new Date(date), currentPhase)
   const sleepHours = raw?.sleep_duration_seconds ? raw.sleep_duration_seconds / 3600 : null
-  const { workout: recommended, reason } = getRecommendedWorkout(scheduled, level, sleepHours)
+  const { workout: recommended, reason } = getRecommendedWorkout(scheduled, level, sleepHours, currentPhase)
 
   // HRV vs Baseline %
   let hrvVsBaselinePct: number | null = null
@@ -99,7 +100,8 @@ export async function GET(req: NextRequest) {
 
   const deloadCheck = shouldTriggerDeload(
     recentScores.map(r => r.training_readiness_score),
-    profile?.weeks_since_deload ?? 0
+    profile?.weeks_since_deload ?? 0,
+    currentPhase
   )
 
   // Readiness in DB cachen

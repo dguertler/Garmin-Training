@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json()
   const allowed = [
     'current_phase', 'phase_start_date', 'bulk_start_date',
-    'daily_steps_goal', 'lthr',
+    'daily_steps_goal', 'lthr', 'sex',
   ]
 
   const updates: string[] = []

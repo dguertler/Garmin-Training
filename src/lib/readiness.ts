@@ -76,17 +76,49 @@ const WEEKLY_SKELETON: Record<string, string> = {
   sunday:    'rest',
 }
 
-export function getScheduledWorkout(date: Date): string {
+// Baseline-Building-Wochenskelett: Zone-2-Fokus, keine schweren Kraft-Sessions
+const BASELINE_SKELETON: Record<string, string> = {
+  monday:    'zone2_run',
+  tuesday:   'mobility',
+  wednesday: 'zone2_run',
+  thursday:  'mobility',
+  friday:    'zone2_run',
+  saturday:  'mobility',
+  sunday:    'rest',
+}
+
+export function getScheduledWorkout(date: Date, phase?: string): string {
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  return WEEKLY_SKELETON[days[date.getDay()]] ?? 'rest'
+  const day = days[date.getDay()]
+  if (phase === 'baseline_building') {
+    return BASELINE_SKELETON[day] ?? 'rest'
+  }
+  return WEEKLY_SKELETON[day] ?? 'rest'
 }
 
 // Workout-Vorschlag nach Readiness + Wochenskelett
 export function getRecommendedWorkout(
   scheduled: string,
   level: ReadinessLevel,
-  sleepHours: number | null
+  sleepHours: number | null,
+  phase?: string
 ): { workout: string; reason: string } {
+  const isBaseline = phase === 'baseline_building'
+
+  // Baseline Building: Zone-2-Fokus, immer niedriger Intensität
+  if (isBaseline) {
+    if (scheduled === 'rest') {
+      return { workout: 'rest', reason: 'Baseline Building: Ruhetag – aktive Erholung empfohlen.' }
+    }
+    if (level === 'low') {
+      return { workout: 'mobility', reason: 'Baseline Building: Niedrige Readiness – Mobility statt Zone 2.' }
+    }
+    return {
+      workout: 'zone2_run',
+      reason: 'Baseline Building: Zone-2-Fokus zum Aufbau aerober Basis. Kein Kraft-Training in dieser Phase.',
+    }
+  }
+
   // Unter 6h Schlaf: immer Intensität reduzieren
   const forcedModerate = sleepHours !== null && sleepHours < 6
 
@@ -126,10 +158,15 @@ export function calculateHRZonesFromLTHR(lthr: number) {
 }
 
 // Deload prüfen: 3+ aufeinanderfolgende Tage Score <50
+// Baseline Building-Phase: kein Deload-Trigger (noch kein Trainingsvolumen aufgebaut)
 export function shouldTriggerDeload(
   recentScores: (number | null)[],
-  weeksSinceLastDeload: number
+  weeksSinceLastDeload: number,
+  phase?: string
 ): { trigger: boolean; reason: string } {
+  if (phase === 'baseline_building') {
+    return { trigger: false, reason: '' }
+  }
   const lowDays = recentScores.slice(0, 3).filter(s => s !== null && s < 50).length
   if (lowDays >= 3) {
     return {

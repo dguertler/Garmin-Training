@@ -43,6 +43,7 @@ export default function SettingsClient() {
     lthr: '',
     daily_steps_goal: '',
     current_phase: 'cut',
+    sex: 'male',
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -70,6 +71,7 @@ export default function SettingsClient() {
           lthr: d.profile.lthr?.toString() ?? '',
           daily_steps_goal: d.profile.daily_steps_goal?.toString() ?? '8000',
           current_phase: d.profile.current_phase ?? 'cut',
+          sex: (d.profile as Record<string, unknown>).sex as string ?? 'male',
         })
       }
     })
@@ -137,7 +139,7 @@ export default function SettingsClient() {
   async function handleSave() {
     setSaving(true)
     setSaved(false)
-    const payload: Record<string, unknown> = { current_phase: form.current_phase }
+    const payload: Record<string, unknown> = { current_phase: form.current_phase, sex: form.sex }
     if (form.lthr) payload.lthr = Number(form.lthr)
     if (form.daily_steps_goal) payload.daily_steps_goal = Number(form.daily_steps_goal)
 
@@ -175,11 +177,12 @@ export default function SettingsClient() {
       {/* Trainingsphase */}
       <div className="card space-y-4">
         <h2 className="font-semibold text-slate-200">Trainingsphase</h2>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
             { key: 'cut', label: 'Schnitt', desc: '−20% TDEE' },
             { key: 'maintenance', label: 'Erhalt', desc: '±0 kcal' },
             { key: 'bulk', label: 'Aufbau', desc: '+10% TDEE' },
+            { key: 'baseline_building', label: 'Baseline', desc: 'Zone-2-Fokus' },
           ].map(phase => (
             <button
               key={phase.key}
@@ -195,6 +198,11 @@ export default function SettingsClient() {
             </button>
           ))}
         </div>
+        {form.current_phase === 'baseline_building' && (
+          <p className="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+            Baseline Building: Zone-2-Wochenplan (Mo/Mi/Fr Zone 2, Di/Do/Sa Mobilität). Kein Deload-Trigger – aerobe Basis aufbauen.
+          </p>
+        )}
         {p && (
           <p className="text-xs text-slate-500">
             Aktuelle Phase: <span className="text-slate-300">{p.current_phase}</span>
@@ -246,6 +254,38 @@ export default function SettingsClient() {
               Quelle: {p?.hr_zones_source === 'lthr' ? 'LTHR-berechnet' : p?.hr_zones_source ?? 'noch nicht gesetzt'}
             </p>
           </div>
+        )}
+      </div>
+
+      {/* Biologisches Geschlecht */}
+      <div className="card space-y-3">
+        <h2 className="font-semibold text-slate-200">Profil</h2>
+        <label className="block">
+          <span className="text-xs text-slate-400 mb-1.5 block">Biologisches Geschlecht</span>
+          <div className="flex gap-2">
+            {[
+              { key: 'male', label: 'Männlich' },
+              { key: 'female', label: 'Weiblich' },
+              { key: 'other', label: 'Divers' },
+            ].map(s => (
+              <button
+                key={s.key}
+                onClick={() => setForm(f => ({ ...f, sex: s.key }))}
+                className={`flex-1 py-2 rounded-lg border text-sm transition-all ${
+                  form.sex === s.key
+                    ? 'border-prime bg-prime/10 text-slate-100'
+                    : 'border-white/10 text-slate-400 hover:border-white/20'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </label>
+        {form.sex === 'female' && (
+          <p className="text-xs text-slate-400 bg-white/5 rounded-lg px-3 py-2">
+            Für Frauen empfehlen wir als Einstieg die Phase <strong className="text-slate-300">Baseline</strong> – Zone-2-Fokus zum Aufbau aerober Kapazität vor dem Krafttraining.
+          </p>
         )}
       </div>
 
