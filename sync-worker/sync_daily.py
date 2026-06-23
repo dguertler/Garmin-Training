@@ -17,10 +17,17 @@ logger = logging.getLogger(__name__)
 
 def _safe(fn, *args, **kwargs):
     """Ruft fn auf, gibt (result, None) oder (None, error_str) zurück."""
+    if fn is None:
+        return None, "method not available"
     try:
         return fn(*args, **kwargs), None
     except Exception as e:
         return None, str(e)
+
+
+def _method(client, name):
+    """Gibt die Methode zurück oder None falls nicht vorhanden."""
+    return getattr(client, name, None)
 
 
 def sync_user_daily(user_id: str, garmin_email: str, garmin_password: str | None = None) -> dict:
@@ -55,86 +62,33 @@ def sync_user_daily(user_id: str, garmin_email: str, garmin_password: str | None
 
     # ── Tägliche Endpunkte ──────────────────────────────────────────────────
 
-    val, err = _safe(client.get_training_readiness, today)
-    if val is not None: data["training_readiness"] = val; results["training_readiness"] = "ok"
-    else: errors["training_readiness"] = err; results["training_readiness"] = "error"
-
-    val, err = _safe(client.get_training_status, today)
-    if val is not None: data["training_status"] = val; results["training_status"] = "ok"
-    else: errors["training_status"] = err; results["training_status"] = "error"
-
-    val, err = _safe(client.get_hrv_data, today)
-    if val is not None: data["hrv"] = val; results["hrv"] = "ok"
-    else: errors["hrv"] = err; results["hrv"] = "error"
-
-    val, err = _safe(client.get_sleep_data, today)
-    if val is not None: data["sleep"] = val; results["sleep"] = "ok"
-    else: errors["sleep"] = err; results["sleep"] = "error"
-
-    val, err = _safe(client.get_body_battery, today, today)
-    if val is not None: data["body_battery"] = val; results["body_battery"] = "ok"
-    else: errors["body_battery"] = err; results["body_battery"] = "error"
-
-    val, err = _safe(client.get_user_summary, today)
-    if val is not None: data["user_summary"] = val; results["user_summary"] = "ok"
-    else: errors["user_summary"] = err; results["user_summary"] = "error"
-
-    val, err = _safe(client.get_heart_rates, today)
-    if val is not None: data["heart_rates"] = val; results["heart_rates"] = "ok"
-    else: errors["heart_rates"] = err; results["heart_rates"] = "error"
-
-    val, err = _safe(client.get_resting_heart_rate, today)
-    if val is not None: data["resting_hr"] = val; results["resting_hr"] = "ok"
-    else: errors["resting_hr"] = err; results["resting_hr"] = "error"
-
-    val, err = _safe(client.get_all_day_stress, today)
-    if val is not None: data["stress"] = val; results["stress"] = "ok"
-    else: errors["stress"] = err; results["stress"] = "error"
-
-    val, err = _safe(client.get_steps_data, today)
-    if val is not None: data["steps"] = val; results["steps"] = "ok"
-    else: errors["steps"] = err; results["steps"] = "error"
-
-    val, err = _safe(client.get_max_metrics, today)
-    if val is not None: data["max_metrics"] = val; results["max_metrics"] = "ok"
-    else: errors["max_metrics"] = err; results["max_metrics"] = "error"
-
-    val, err = _safe(client.get_intensity_minutes_data, today)
-    if val is not None: data["intensity_minutes"] = val; results["intensity_minutes"] = "ok"
-    else: errors["intensity_minutes"] = err; results["intensity_minutes"] = "error"
-
-    val, err = _safe(client.get_respiration_data, today)
-    if val is not None: data["respiration"] = val; results["respiration"] = "ok"
-    else: errors["respiration"] = err; results["respiration"] = "error"
-
-    val, err = _safe(client.get_spo2_data, today)
-    if val is not None: data["spo2"] = val; results["spo2"] = "ok"
-    else: errors["spo2"] = err; results["spo2"] = "error"
-
-    val, err = _safe(client.get_body_composition, today, today)
-    if val is not None: data["body_composition"] = val; results["body_composition"] = "ok"
-    else: errors["body_composition"] = err; results["body_composition"] = "error"
-
-    val, err = _safe(client.get_daily_weigh_ins, today, today)
-    if val is not None: data["weigh_ins"] = val; results["weigh_ins"] = "ok"
-    else: errors["weigh_ins"] = err; results["weigh_ins"] = "error"
-
-    val, err = _safe(client.get_hydration_data, today)
-    if val is not None: data["hydration"] = val; results["hydration"] = "ok"
-    else: errors["hydration"] = err; results["hydration"] = "error"
-
-    val, err = _safe(client.get_stats_and_body, today)
-    if val is not None: data["stats_and_body"] = val; results["stats_and_body"] = "ok"
-    else: errors["stats_and_body"] = err; results["stats_and_body"] = "error"
-
-    val, err = _safe(client.get_lactate_threshold)
-    if val is not None: data["lactate_threshold"] = val; results["lactate_threshold"] = "ok"
-    else: errors["lactate_threshold"] = err; results["lactate_threshold"] = "error"
-
-    # Morning Readiness (eigener Endpunkt)
-    val, err = _safe(client.get_training_readiness, today)
-    if val is not None: data["morning_readiness"] = val; results["morning_readiness"] = "ok"
-    else: errors["morning_readiness"] = err; results["morning_readiness"] = "error"
+    for key, method_name, args in [
+        ("training_readiness",  "get_training_readiness",    (today,)),
+        ("training_status",     "get_training_status",       (today,)),
+        ("hrv",                 "get_hrv_data",              (today,)),
+        ("sleep",               "get_sleep_data",            (today,)),
+        ("body_battery",        "get_body_battery",          (today, today)),
+        ("user_summary",        "get_user_summary",          (today,)),
+        ("heart_rates",         "get_heart_rates",           (today,)),
+        ("resting_hr",          "get_resting_heart_rate",    (today,)),
+        ("stress",              "get_all_day_stress",        (today,)),
+        ("steps",               "get_steps_data",            (today,)),
+        ("max_metrics",         "get_max_metrics",           (today,)),
+        ("intensity_minutes",   "get_intensity_minutes_data",(today,)),
+        ("respiration",         "get_respiration_data",      (today,)),
+        ("spo2",                "get_spo2_data",             (today,)),
+        ("body_composition",    "get_body_composition",      (today, today)),
+        ("weigh_ins",           "get_daily_weigh_ins",       (today, today)),
+        ("hydration",           "get_hydration_data",        (today,)),
+        ("stats_and_body",      "get_stats_and_body",        (today,)),
+        ("lactate_threshold",   "get_lactate_threshold",     ()),
+        ("morning_readiness",   "get_training_readiness",    (today,)),
+    ]:
+        val, err = _safe(_method(client, method_name), *args)
+        if val is not None:
+            data[key] = val; results[key] = "ok"
+        else:
+            errors[key] = err; results[key] = "error"
 
     # ── Parsed speichern ──────────────────────────────────────────────────
 
