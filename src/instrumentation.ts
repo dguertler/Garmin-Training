@@ -2,22 +2,36 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
   const { query, queryOne } = await import('@/lib/db')
+  const fs = await import('fs')
+  const path = await import('path')
 
-  // Run migration 008 (idempotent)
+  // Auto-migrate: run schema + all migrations if users table doesn't exist
   try {
-    await query(`
-      ALTER TABLE user_credentials
-        ADD COLUMN IF NOT EXISTS force_password_change BOOLEAN NOT NULL DEFAULT FALSE,
-        ADD COLUMN IF NOT EXISTS password_reset_token TEXT,
-        ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ
-    `)
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_uc_reset_token
-        ON user_credentials (password_reset_token)
-        WHERE password_reset_token IS NOT NULL
-    `)
+    const tableCheck = await queryOne<{ exists: boolean }>(
+      `SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'users'
+      ) AS exists`
+    )
+
+    if (!tableCheck?.exists) {
+      console.log('[instrumentation] No schema found — running full migration')
+      const schemaPath = path.join(process.cwd(), 'db', 'schema.sql')
+      const schemaSql = fs.readFileSync(schemaPath, 'utf8')
+      await query(schemaSql)
+      console.log('[instrumentation] schema.sql applied')
+
+      const migrationsDir = path.join(process.cwd(), 'db', 'migrations')
+      const files = fs.readdirSync(migrationsDir).sort()
+      for (const file of files) {
+        if (!file.endsWith('.sql')) continue
+        const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
+        await query(sql)
+        console.log(`[instrumentation] migration applied: ${file}`)
+      }
+    }
   } catch (e) {
-    console.error('[instrumentation] migration error:', e)
+    console.error('[instrumentation] auto-migration error:', e)
   }
 
   // Create initial user if env vars are set and no users exist

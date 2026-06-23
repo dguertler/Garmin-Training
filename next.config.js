@@ -33,6 +33,8 @@ const nextConfig = {
         'pg-native',
         'web-push',
         'nodemailer',
+        'fs',
+        'path',
       ]
     }
     return config
