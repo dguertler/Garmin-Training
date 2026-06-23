@@ -17,6 +17,12 @@ INTERNAL_KEY = os.environ.get("SYNC_INTERNAL_KEY", "")
 
 
 class SyncHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/health':
+            self._respond(200, {'ok': True, 'status': 'running'})
+        else:
+            self._respond(404, {'error': 'Not found'})
+
     def do_POST(self):
         if self.path != "/sync/trigger":
             self._respond(404, {"error": "Not found"})
