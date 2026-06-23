@@ -54,9 +54,12 @@ CREATE TABLE verification_tokens (
 
 -- Passwort-Hashes für Credentials-Login (bcrypt, separate Tabelle)
 CREATE TABLE user_credentials (
-    user_id         UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    password_hash   TEXT NOT NULL,
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    user_id                  UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    password_hash            TEXT NOT NULL,
+    force_password_change    BOOLEAN NOT NULL DEFAULT FALSE,
+    password_reset_token     TEXT,
+    password_reset_expires_at TIMESTAMPTZ,
+    updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================

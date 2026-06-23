@@ -73,6 +73,7 @@ Migrations run in order via `db/migrate.sh` (idempotent):
 005_profile_goals.sql     — profile_goals table
 006_baseline_building.sql — user_profiles.sex + baseline phase
 007_push_subscriptions.sql — Web Push subscriptions
+008_password_reset.sql    — force_password_change + reset token columns (MUST run on existing DBs)
 ```
 
 Key tables: `users`, `user_credentials`, `garmin_tokens`, `garmin_raw_metrics`, `garmin_activities`, `garmin_activity_details`, `garmin_activity_splits`, `garmin_activity_hr_zones`, `garmin_weekly_metrics`, `garmin_gear`, `daily_input`, `user_profiles`

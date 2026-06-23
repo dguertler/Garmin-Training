@@ -75,6 +75,7 @@ Alle Phasen 1–10 inkl. 9.4 sind fertig. Nächste Schritte: Deployment (siehe u
 005_profile_goals.sql     ✅ profile_goals Tabelle
 006_baseline_building.sql ✅ user_profiles.sex + Baseline-Phase-Kommentar
 007_push_subscriptions.sql ✅ push_subscriptions (Web Push)
+008_password_reset.sql    ✅ force_password_change + Reset-Token-Felder (⚠️ MUSS auf bestehender DB ausgeführt werden)
 ```
 
 ## Deployment-Checkliste
@@ -84,6 +85,6 @@ Alle Phasen 1–10 inkl. 9.4 sind fertig. Nächste Schritte: Deployment (siehe u
 | 1 | `npm install` – web-push Paket installieren |
 | 2 | VAPID-Keys generieren: `npx web-push generate-vapid-keys` |
 | 3 | Env-Vars setzen: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:deine@email.de` |
-| 4 | `db/migrate.sh` ausführen (Migrationen 004–007) |
+| 4 | `db/migrate.sh` ausführen (Migrationen 004–008) |
 | 5 | PWA-Icons erstellen: `public/icon-192.png` + `public/icon-512.png` |
 | 6 | Branch nach main mergen |
