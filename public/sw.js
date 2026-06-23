@@ -1,4 +1,4 @@
-// Service Worker – Offline Fallback für Garmin Training Dashboard
+// Service Worker – Offline Fallback + Web Push für Garmin Training Dashboard
 const CACHE = 'training-v1'
 
 // Statische Assets cachen beim Install
@@ -84,5 +84,36 @@ self.addEventListener('fetch', event => {
   // Alles andere: Cache-first (statische Assets)
   event.respondWith(
     caches.match(request).then(cached => cached || fetch(request))
+  )
+})
+
+// Push-Benachrichtigung empfangen
+self.addEventListener('push', event => {
+  let data = { title: 'Training Dashboard', body: '', url: '/dashboard' }
+  try {
+    data = { ...data, ...JSON.parse(event.data?.text() ?? '{}') }
+  } catch { /* ignore parse errors */ }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon ?? '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url },
+      vibrate: [200, 100, 200],
+    })
+  )
+})
+
+// Klick auf Benachrichtigung → App öffnen
+self.addEventListener('notificationclick', event => {
+  event.notification.close()
+  const url = event.notification.data?.url ?? '/dashboard'
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const existing = list.find(c => c.url.includes(url))
+      if (existing) return existing.focus()
+      return clients.openWindow(url)
+    })
   )
 })

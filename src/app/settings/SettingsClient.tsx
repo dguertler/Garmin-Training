@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 
 interface Profile {
   current_phase: string
@@ -48,6 +48,64 @@ export default function SettingsClient() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // Push notifications
+  const [pushState, setPushState] = useState<'unsupported' | 'denied' | 'subscribed' | 'unsubscribed' | 'loading'>('loading')
+  const [pushMsg, setPushMsg] = useState<string | null>(null)
+
+  const checkPushState = useCallback(async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushState('unsupported')
+      return
+    }
+    if (Notification.permission === 'denied') {
+      setPushState('denied')
+      return
+    }
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    setPushState(sub ? 'subscribed' : 'unsubscribed')
+  }, [])
+
+  async function handlePushSubscribe() {
+    setPushMsg(null)
+    try {
+      const keyRes = await fetch('/api/push/vapid-public-key')
+      if (!keyRes.ok) { setPushMsg('VAPID-Key nicht konfiguriert.'); return }
+      const { publicKey } = await keyRes.json()
+
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      })
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub.toJSON()),
+      })
+      setPushState('subscribed')
+      setPushMsg('Benachrichtigungen aktiviert ✓')
+    } catch {
+      setPushMsg('Benachrichtigungen konnten nicht aktiviert werden.')
+    }
+  }
+
+  async function handlePushUnsubscribe() {
+    setPushMsg(null)
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    if (sub) {
+      await fetch('/api/push/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      })
+      await sub.unsubscribe()
+    }
+    setPushState('unsubscribed')
+    setPushMsg('Benachrichtigungen deaktiviert.')
+  }
+
   // Goals
   const [goals, setGoals] = useState({
     target_weight_kg: '', target_body_fat_pct: '',
@@ -76,6 +134,7 @@ export default function SettingsClient() {
       }
     })
     fetch('/api/garmin/credentials').then(r => r.json()).then(setGarminStatus)
+    checkPushState()
     fetch('/api/profile/goals').then(r => r.json()).then(d => {
       if (d.goals) setGoals({
         target_weight_kg: d.goals.target_weight_kg?.toString() ?? '',
@@ -492,6 +551,48 @@ export default function SettingsClient() {
         </div>
       </div>
 
+      {/* Push-Benachrichtigungen */}
+      <div className="card space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-slate-200">Benachrichtigungen</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Push-Alerts für Deload-Warnung und NEAT-Erinnerung (einmal pro Tag).
+            </p>
+          </div>
+          {pushState === 'subscribed' && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-prime/20 text-prime flex-shrink-0">Aktiv</span>
+          )}
+        </div>
+
+        {pushState === 'unsupported' && (
+          <p className="text-xs text-slate-500">Dein Browser unterstützt keine Push-Benachrichtigungen.</p>
+        )}
+        {pushState === 'denied' && (
+          <p className="text-xs text-amber-400">Benachrichtigungen wurden im Browser blockiert. Bitte in den Browser-Einstellungen erlauben.</p>
+        )}
+        {pushState !== 'unsupported' && pushState !== 'denied' && (
+          <button
+            onClick={pushState === 'subscribed' ? handlePushUnsubscribe : handlePushSubscribe}
+            disabled={pushState === 'loading'}
+            className={`w-full text-sm py-2 rounded-lg border transition-all ${
+              pushState === 'subscribed'
+                ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
+                : 'btn-primary'
+            }`}
+          >
+            {pushState === 'loading' ? 'Prüfe…'
+              : pushState === 'subscribed' ? 'Benachrichtigungen deaktivieren'
+              : 'Benachrichtigungen aktivieren'}
+          </button>
+        )}
+        {pushMsg && (
+          <p className={`text-xs text-center ${pushMsg.includes('✓') ? 'text-prime' : 'text-slate-400'}`}>
+            {pushMsg}
+          </p>
+        )}
+      </div>
+
       {/* Quicklinks */}
       <div className="flex gap-3">
         <Link href="/settings/zones" className="flex-1 card-sm text-center text-sm text-slate-400 hover:text-slate-200 transition-all">
@@ -503,4 +604,11 @@ export default function SettingsClient() {
       </div>
     </div>
   )
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = atob(base64)
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)))
 }

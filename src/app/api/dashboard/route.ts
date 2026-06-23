@@ -7,6 +7,7 @@ import { authOptions } from '@/lib/auth'
 import { query, queryOne } from '@/lib/db'
 import { classifyReadiness, getReadinessColor, getScheduledWorkout, checkConcurrentTraining } from '@/lib/readiness'
 import { calcWeightTrend } from '@/lib/nutrition'
+import { sendNeatNotification } from '@/lib/push'
 
 
 export async function GET(req: NextRequest) {
@@ -164,6 +165,15 @@ export async function GET(req: NextRequest) {
     ?? (garmin as { training_readiness_score?: number } | null)?.training_readiness_score
     ?? null
   const readinessLevel = classifyReadiness(readinessScore)
+
+  // NEAT-Push (fire-and-forget)
+  const neatWarning = stepsAvg7 !== null && neatBaseline?.avg_daily_steps
+    ? stepsAvg7 < neatBaseline.avg_daily_steps * 0.85
+    : false
+  if (neatWarning && stepsAvg7 !== null) {
+    const stepsGoal = (steps7[0] as { steps_goal?: number } | undefined)?.steps_goal ?? 8000
+    sendNeatNotification(userId, stepsAvg7, stepsGoal).catch(() => {})
+  }
 
   return NextResponse.json({
     today,

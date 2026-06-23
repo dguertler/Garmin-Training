@@ -1,6 +1,6 @@
 # Ausstehende Phasen – Garmin Training Dashboard
 
-Implementierter Stand: Phase 1–10 (vollständig abgeschlossen).
+Implementierter Stand: Phase 1–10 (vollständig abgeschlossen, inkl. 9.4 Web Push).
 
 ---
 
@@ -37,7 +37,7 @@ Implementierter Stand: Phase 1–10 (vollständig abgeschlossen).
 - ✅ **9.1** `public/manifest.json` – PWA-Manifest (standalone, dark theme)
 - ✅ **9.2** `SkeletonCard/SkeletonChart/SkeletonList` – Animierte Placeholder-Komponenten
 - ✅ **9.3** `public/sw.js` + `ServiceWorkerRegistrar` – Offline Service Worker (network-first + Cache-Fallback)
-- ⏳ **9.4** Web-Push-Benachrichtigungen – noch offen
+- ✅ **9.4** Web-Push-Benachrichtigungen – Deload + NEAT Alerts, VAPID, Push-Subscription-Tabelle
 
 ### Phase 10 – Daten-Export
 - ✅ **10.1** `/api/export/csv?type=weight|readiness|strength` + Settings-Export-Links
@@ -45,11 +45,9 @@ Implementierter Stand: Phase 1–10 (vollständig abgeschlossen).
 
 ---
 
-## Noch Ausstehend
+## Alles implementiert ✅
 
-### 9.4 Web-Push-Benachrichtigungen
-- **Web Push API** für Deload/NEAT-Benachrichtigungen
-- Benötigt VAPID-Keys, Push-Subscription-Tabelle, Server-side Push-API
+Alle Phasen 1–10 inkl. 9.4 sind fertig. Nächste Schritte: Deployment (siehe unten).
 
 ---
 
@@ -70,10 +68,22 @@ Implementierter Stand: Phase 1–10 (vollständig abgeschlossen).
 ## Migrations-Reihenfolge
 
 ```
-001_initial.sql         ✅ Basis-Schema
-002_phase2.sql          ✅ Post-Workout, Zonen, Templates
-003_indexes.sql         ✅ Performance-Indizes
-004_alcohol_field.sql   ✅ daily_input.alcohol_units
-005_profile_goals.sql   ✅ profile_goals Tabelle
+001_initial.sql           ✅ Basis-Schema
+002_phase2.sql            ✅ Post-Workout, Zonen, Templates
+003_indexes.sql           ✅ Performance-Indizes
+004_alcohol_field.sql     ✅ daily_input.alcohol_units
+005_profile_goals.sql     ✅ profile_goals Tabelle
 006_baseline_building.sql ✅ user_profiles.sex + Baseline-Phase-Kommentar
+007_push_subscriptions.sql ✅ push_subscriptions (Web Push)
 ```
+
+## Deployment-Checkliste
+
+| # | Aufgabe |
+|---|---------|
+| 1 | `npm install` – web-push Paket installieren |
+| 2 | VAPID-Keys generieren: `npx web-push generate-vapid-keys` |
+| 3 | Env-Vars setzen: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:deine@email.de` |
+| 4 | `db/migrate.sh` ausführen (Migrationen 004–007) |
+| 5 | PWA-Icons erstellen: `public/icon-192.png` + `public/icon-512.png` |
+| 6 | Branch nach main mergen |

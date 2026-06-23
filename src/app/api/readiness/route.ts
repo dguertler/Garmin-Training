@@ -13,6 +13,7 @@ import {
   buildRecommendationReason,
   shouldTriggerDeload,
 } from '@/lib/readiness'
+import { sendDeloadNotification } from '@/lib/push'
 
 
 export async function GET(req: NextRequest) {
@@ -103,6 +104,11 @@ export async function GET(req: NextRequest) {
     profile?.weeks_since_deload ?? 0,
     currentPhase
   )
+
+  // Deload-Push (fire-and-forget, nur heute und wenn Warnung aktiv)
+  if (deloadCheck.trigger) {
+    sendDeloadNotification(userId, deloadCheck.reason).catch(() => {})
+  }
 
   // Readiness in DB cachen
   await query(
