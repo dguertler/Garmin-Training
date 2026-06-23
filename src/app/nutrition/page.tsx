@@ -60,6 +60,7 @@ export default function NutritionPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-100">Ernährung</h1>
         <div className="flex items-center gap-2">
+          <Link href="/nutrition/log" className="btn-ghost text-sm">Log</Link>
           <Link href="/nutrition/templates" className="btn-ghost text-sm">Templates</Link>
           <button onClick={() => setShowInput(true)} className="btn-primary text-sm">
             Gewicht eingeben
