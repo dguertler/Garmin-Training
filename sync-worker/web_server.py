@@ -6,6 +6,7 @@ Läuft auf Port 8001 nebenläufig zum Scheduler.
 import json
 import logging
 import os
+import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -78,8 +79,12 @@ class SyncHandler(BaseHTTPRequestHandler):
         logger.info(fmt, *args)
 
 
+class DualStackHTTPServer(HTTPServer):
+    address_family = socket.AF_INET6
+
+
 def start_web_server(port: int = 8001):
-    server = HTTPServer(("0.0.0.0", port), SyncHandler)
+    server = DualStackHTTPServer(("::", port), SyncHandler)
     logger.info("Sync-Worker HTTP-Server auf Port %d", port)
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
