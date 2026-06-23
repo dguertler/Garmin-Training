@@ -1,10 +1,11 @@
-# Railway Deployment – 2 Services: web + sync-worker
+# Railway Deployment – Web Service (Next.js)
 
 [build]
 builder = "nixpacks"
+buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm run start"
+startCommand = "npm run start -- -p ${PORT:-3000}"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
