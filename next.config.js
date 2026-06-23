@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['pg', 'web-push'],
+    serverComponentsExternalPackages: ['pg', 'web-push', 'nodemailer'],
   },
   typescript: {
     ignoreBuildErrors: true,

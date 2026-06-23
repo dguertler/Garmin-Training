@@ -2,23 +2,25 @@ import 'next-auth'
 import 'next-auth/jwt'
 
 declare module 'next-auth' {
-  interface User {
-    id: string
-    profileKey?: string
-  }
   interface Session {
     user: {
       id: string
-      email?: string | null
+      email: string
       name?: string | null
-      profileKey?: string
+      profileKey: string
+      forcePasswordChange: boolean
     }
+  }
+  interface User {
+    profileKey: string
+    forcePasswordChange: boolean
   }
 }
 
 declare module 'next-auth/jwt' {
   interface JWT {
-    userId?: string
-    profileKey?: string
+    userId: string
+    profileKey: string
+    forcePasswordChange: boolean
   }
 }

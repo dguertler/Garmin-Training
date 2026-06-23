@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,9 +16,17 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     const res = await signIn('credentials', { email, password, redirect: false })
-    setLoading(false)
-    if (res?.ok) router.push('/dashboard')
-    else setError('E-Mail oder Passwort falsch.')
+    if (res?.ok) {
+      const session = await getSession()
+      if ((session?.user as any)?.forcePasswordChange) {
+        router.push('/change-password')
+      } else {
+        router.push('/dashboard')
+      }
+    } else {
+      setLoading(false)
+      setError('E-Mail oder Passwort falsch.')
+    }
   }
 
   return (
@@ -31,38 +40,23 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="card space-y-4">
           <div>
             <label className="stat-label block mb-1.5">E-Mail</label>
-            <input
-              type="email"
-              className="input-field w-full"
-              placeholder="daniel@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
+            <input type="email" className="input-field w-full" placeholder="daniel@example.com"
+              value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
           </div>
           <div>
             <label className="stat-label block mb-1.5">Passwort</label>
-            <input
-              type="password"
-              className="input-field w-full"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
+            <input type="password" className="input-field w-full" placeholder="••••••••"
+              value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
           </div>
-          {error && (
-            <p className="text-low text-sm text-center">{error}</p>
-          )}
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full disabled:opacity-50"
-          >
+          {error && <p className="text-low text-sm text-center">{error}</p>}
+          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
             {loading ? 'Anmelden…' : 'Anmelden'}
           </button>
+          <div className="text-center">
+            <Link href="/forgot-password" className="text-slate-400 text-sm hover:text-slate-200">
+              Passwort vergessen?
+            </Link>
+          </div>
         </form>
       </div>
     </div>
