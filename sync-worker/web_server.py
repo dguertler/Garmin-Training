@@ -21,8 +21,63 @@ class SyncHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/health':
             self._respond(200, {'ok': True, 'status': 'running'})
+        elif self.path == '/migrate':
+            self._run_migrations()
         else:
             self._respond(404, {'error': 'Not found'})
+
+    def _run_migrations(self):
+        migrations = [
+            ("008_password_reset", """
+                ALTER TABLE user_credentials
+                  ADD COLUMN IF NOT EXISTS force_password_change BOOLEAN NOT NULL DEFAULT FALSE,
+                  ADD COLUMN IF NOT EXISTS password_reset_token TEXT,
+                  ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ;
+                CREATE INDEX IF NOT EXISTS idx_uc_reset_token
+                  ON user_credentials (password_reset_token)
+                  WHERE password_reset_token IS NOT NULL;
+            """),
+            ("009_fix_missing_columns", """
+                ALTER TABLE garmin_activity_hr_zones
+                  ADD COLUMN IF NOT EXISTS time_in_zone_seconds INT;
+                UPDATE garmin_activity_hr_zones
+                  SET time_in_zone_seconds = seconds_in_zone
+                  WHERE time_in_zone_seconds IS NULL AND seconds_in_zone IS NOT NULL;
+                ALTER TABLE profile_goals
+                  ADD COLUMN IF NOT EXISTS weekly_cardio_sessions INTEGER DEFAULT 2;
+            """),
+            ("010_daily_readiness_columns", """
+                ALTER TABLE daily_readiness
+                  ADD COLUMN IF NOT EXISTS hrv_status TEXT,
+                  ADD COLUMN IF NOT EXISTS training_status TEXT;
+            """),
+        ]
+        results = []
+        try:
+            with get_db_conn() as conn, conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS schema_migrations (
+                        version TEXT PRIMARY KEY,
+                        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                """)
+                conn.commit()
+                for version, sql in migrations:
+                    cur.execute("SELECT COUNT(*) FROM schema_migrations WHERE version = %s", (version,))
+                    if cur.fetchone()[0] == 0:
+                        try:
+                            cur.execute(sql)
+                            cur.execute("INSERT INTO schema_migrations (version) VALUES (%s) ON CONFLICT DO NOTHING", (version,))
+                            conn.commit()
+                            results.append({"name": version, "status": "ok"})
+                        except Exception as e:
+                            conn.rollback()
+                            results.append({"name": version, "status": "error", "error": str(e)})
+                    else:
+                        results.append({"name": version, "status": "already applied"})
+            self._respond(200, {"ok": True, "results": results})
+        except Exception as e:
+            self._respond(500, {"ok": False, "error": str(e)})
 
     def do_POST(self):
         if self.path != "/sync/trigger":
