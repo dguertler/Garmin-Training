@@ -27,7 +27,11 @@ HISTORY_ENDPOINTS = [
 
 
 def _get_missing_dates(user_id: str, days: int) -> list[str]:
-    """Gibt fehlende Datumsstrings zurück (kein Eintrag oder alle Werte null)."""
+    """Gibt fehlende oder unvollständige Datumsstrings zurück.
+
+    Ein Tag gilt als vollständig nur wenn er Basis-Daten UND resting_heart_rate hat.
+    Tage mit Teilwerten (z.B. nach Parsing-Bug-Fixes) werden damit erneut geholt.
+    """
     end = date.today()
     start = end - timedelta(days=days - 1)
 
@@ -37,9 +41,8 @@ def _get_missing_dates(user_id: str, days: int) -> list[str]:
                WHERE user_id = %s AND metric_date >= %s AND metric_date <= %s
                AND (training_readiness_score IS NOT NULL
                     OR sleep_score IS NOT NULL
-                    OR hrv_last_night IS NOT NULL
-                    OR steps_total IS NOT NULL
-                    OR resting_heart_rate IS NOT NULL)""",
+                    OR steps_total IS NOT NULL)
+               AND resting_heart_rate IS NOT NULL""",
             (user_id, start.isoformat(), end.isoformat()),
         )
         existing = {row[0] for row in cur.fetchall()}

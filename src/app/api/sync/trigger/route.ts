@@ -11,9 +11,15 @@ export async function POST() {
 
   const userId = session.user.id
 
+  // Stale "running" Jobs bereinigen (älter als 15 Min – entstehen bei Service-Restart)
+  await query(
+    "UPDATE sync_jobs SET status='failed', finished_at=NOW() WHERE user_id=$1 AND status='running' AND started_at < NOW() - INTERVAL '15 minutes'",
+    [userId]
+  )
+
   // Laufenden Sync prüfen – nicht doppelt starten
   const running = await queryOne<{ id: string }>(
-    "SELECT id FROM sync_jobs WHERE user_id = $1 AND status = 'running' AND started_at > NOW() - INTERVAL '10 minutes'",
+    "SELECT id FROM sync_jobs WHERE user_id = $1 AND status = 'running' AND started_at > NOW() - INTERVAL '15 minutes'",
     [userId]
   )
   if (running) {
