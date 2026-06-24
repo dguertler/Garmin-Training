@@ -86,40 +86,51 @@ class SyncHandler(BaseHTTPRequestHandler):
             self._respond(500, {"ok": False, "error": str(e)})
 
     def do_POST(self):
-        if self.path != "/sync/trigger":
+        if self.path == "/sync/trigger":
+            self._handle_sync_trigger()
+        elif self.path == "/sync/history":
+            self._handle_sync_history()
+        else:
             self._respond(404, {"error": "Not found"})
-            return
 
-        # Auth prüfen
+    def _get_user_email(self, user_id: str):
+        with get_db_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT garmin_username FROM user_profiles WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+        return row
+
+    def _check_auth(self) -> bool:
         if INTERNAL_KEY and self.headers.get("X-Internal-Key") != INTERNAL_KEY:
             self._respond(403, {"error": "Forbidden"})
+            return False
+        return True
+
+    def _read_body(self) -> dict:
+        length = int(self.headers.get("Content-Length", 0))
+        return json.loads(self.rfile.read(length) or b"{}")
+
+    def _handle_sync_trigger(self):
+        if not self._check_auth():
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(length) or b"{}")
+        body = self._read_body()
         user_id = body.get("user_id")
-
         if not user_id:
             self._respond(400, {"error": "user_id required"})
             return
 
-        # Garmin-E-Mail aus DB holen
-        with get_db_conn() as conn, conn.cursor() as cur:
-            cur.execute(
-                "SELECT up.garmin_username FROM user_profiles up WHERE up.user_id = %s",
-                (user_id,),
-            )
-            row = cur.fetchone()
-
+        row = self._get_user_email(user_id)
         if not row:
             self._respond(404, {"error": "User not found"})
             return
 
         garmin_email = body.get("garmin_email") or row[0]
-        garmin_password = body.get("garmin_password")  # Nur beim erstmaligen Login
-        job_id = body.get("job_id")  # Von Web-Service übergeben – wird direkt verwendet
+        garmin_password = body.get("garmin_password")
+        job_id = body.get("job_id")
 
-        # Sync in separatem Thread (Request sofort zurückgeben)
         def run():
             try:
                 sync_user_daily(user_id, garmin_email, garmin_password, job_id=job_id)
@@ -128,6 +139,36 @@ class SyncHandler(BaseHTTPRequestHandler):
 
         threading.Thread(target=run, daemon=True).start()
         self._respond(200, {"ok": True, "message": "Sync gestartet"})
+
+    def _handle_sync_history(self):
+        if not self._check_auth():
+            return
+
+        body = self._read_body()
+        user_id = body.get("user_id")
+        if not user_id:
+            self._respond(400, {"error": "user_id required"})
+            return
+
+        row = self._get_user_email(user_id)
+        if not row:
+            self._respond(404, {"error": "User not found"})
+            return
+
+        garmin_email = body.get("garmin_email") or row[0]
+        garmin_password = body.get("garmin_password")
+        days = int(body.get("days", 60))
+
+        def run():
+            try:
+                from sync_history import sync_user_history
+                sync_user_history(user_id, garmin_email, garmin_password, days=days)
+            except Exception as e:
+                logger.error("History-Sync fehlgeschlagen: %s", e)
+
+        threading.Thread(target=run, daemon=True).start()
+        self._respond(200, {"ok": True, "message": f"History-Sync gestartet ({days} Tage)"})
+
 
     def _respond(self, code: int, data: dict):
         body = json.dumps(data).encode()

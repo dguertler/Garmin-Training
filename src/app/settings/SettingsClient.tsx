@@ -126,6 +126,22 @@ export default function SettingsClient() {
   const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null)
   const [syncResult, setSyncResult] = useState<{ status: 'success' | 'error' | 'partial'; errors?: Record<string, string> } | null>(null)
   const syncPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [historyRunning, setHistoryRunning] = useState(false)
+  const [historyMsg, setHistoryMsg] = useState<string | null>(null)
+
+  async function handleHistorySync() {
+    setHistoryRunning(true)
+    setHistoryMsg(null)
+    try {
+      const res = await fetch('/api/sync/history', { method: 'POST' })
+      const json = await res.json()
+      setHistoryMsg(res.ok ? 'Historischer Sync gestartet – kann einige Minuten dauern.' : (json.error ?? 'Fehler'))
+    } catch {
+      setHistoryMsg('Netzwerkfehler')
+    } finally {
+      setHistoryRunning(false)
+    }
+  }
 
   async function handleManualSync() {
     setSyncRunning(true)
@@ -560,6 +576,17 @@ export default function SettingsClient() {
                 </>
               ) : '🔄 Garmin-Daten jetzt abrufen'}
             </button>
+
+            <button
+              onClick={handleHistorySync}
+              disabled={historyRunning || syncRunning}
+              className="w-full text-sm py-2 rounded-lg border border-white/10 text-slate-300 hover:border-white/20 hover:text-slate-100 disabled:opacity-50 transition-all"
+            >
+              {historyRunning ? 'Historischer Sync läuft…' : '📅 Letzte 60 Tage importieren'}
+            </button>
+            {historyMsg && (
+              <p className="text-xs text-center text-slate-400">{historyMsg}</p>
+            )}
 
             {syncRunning && (
               <div className="space-y-1">
