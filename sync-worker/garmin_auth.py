@@ -1,24 +1,20 @@
 """
-Garmin Auth – garth-Token-Cache mit AES-256-Verschlüsselung.
+Garmin Auth – Token-Cache mit AES-256-Verschlüsselung.
 Tokens werden in PostgreSQL (garmin_tokens) gespeichert, nicht im Filesystem.
+
+Kompatibel mit garminconnect >= 0.2.19 (DI-Token-Format: di_token / di_refresh_token).
 """
 import os
 import json
 import logging
-import tempfile
-from datetime import datetime, timezone
-from pathlib import Path
 
 import backoff
-import garth
 from cryptography.fernet import Fernet
 from garminconnect import Garmin
 import psycopg2
 
 logger = logging.getLogger(__name__)
 
-# GARMIN_ENCRYPT_KEY muss als 32-Byte Fernet-Key gesetzt sein:
-#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 _fernet = Fernet(os.environ["GARMIN_ENCRYPT_KEY"].encode())
 
 
@@ -34,8 +30,11 @@ def get_db_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
 
-def load_tokens_from_db(user_id: str) -> dict | None:
-    """Lädt und entschlüsselt garth-Tokens aus PostgreSQL."""
+def load_tokens_from_db(user_id: str) -> str | None:
+    """
+    Lädt und entschlüsselt Garmin-Client-Tokens aus PostgreSQL.
+    Gibt den JSON-String zurück (di_token-Format) oder None wenn nicht verfügbar.
+    """
     with get_db_conn() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT token_data_enc, status FROM garmin_tokens WHERE user_id = %s",
@@ -47,12 +46,26 @@ def load_tokens_from_db(user_id: str) -> dict | None:
         if row[1] != "active":
             logger.warning("Token für user %s hat Status: %s", user_id, row[1])
             return None
-        return json.loads(_decrypt(bytes(row[0])))
+        decrypted = _decrypt(bytes(row[0]))
+        try:
+            data = json.loads(decrypted)
+            # Altes garth-Format (oauth1/oauth2) ist inkompatibel → ignorieren
+            if "oauth1" in data or "oauth2" in data:
+                logger.info("Alter Token-Format (garth oauth1/oauth2) für user %s – wird ignoriert", user_id)
+                return None
+            # Neues DI-Format muss di_token enthalten
+            if not data.get("di_token"):
+                logger.warning("Token für user %s hat kein di_token – wird ignoriert", user_id)
+                return None
+            return decrypted
+        except Exception as e:
+            logger.warning("Token-Deserialisierung fehlgeschlagen für user %s: %s", user_id, e)
+            return None
 
 
-def save_tokens_to_db(user_id: str, token_data: dict) -> None:
-    """Verschlüsselt und speichert garth-Tokens in PostgreSQL (Upsert)."""
-    enc = _encrypt(json.dumps(token_data))
+def save_tokens_to_db(user_id: str, token_json: str) -> None:
+    """Verschlüsselt und speichert Garmin-Client-Tokens in PostgreSQL (Upsert)."""
+    enc = _encrypt(token_json)
     with get_db_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -93,47 +106,31 @@ def get_garmin_client(user_id: str, garmin_email: str, garmin_password: str | No
     """
     Gibt einen authentifizierten Garmin-Client zurück.
     Strategie:
-    1. Token aus DB laden (garth OAuth-Cache)
-    2. Falls kein Token → Passwort-Login, Token speichern
-    3. Exponential Backoff bei Fehlern
+    1. Token-JSON aus DB laden → direkt in Client laden
+    2. Falls kein Token oder Token ungültig → Passwort-Login
+    3. Nach jedem erfolgreichen Login → Token in DB speichern
     """
-    tokens = load_tokens_from_db(user_id)
+    tokens_json = load_tokens_from_db(user_id)
+    client = Garmin(garmin_email, garmin_password)
 
-    # garth speichert Session-Daten in einem Verzeichnis – wir nutzen tempdir
-    with tempfile.TemporaryDirectory() as tmpdir:
-        garth_home = Path(tmpdir)
-
-        oauth1 = tokens.get("oauth1", {}) if tokens else {}
-        oauth2 = tokens.get("oauth2", {}) if tokens else {}
-        has_valid_tokens = bool(oauth1.get("oauth_token") and oauth1.get("oauth_token_secret"))
-
-        if has_valid_tokens:
-            # Token-Daten ins temporäre garth-Home schreiben
-            (garth_home / "oauth1_token.json").write_text(json.dumps(oauth1))
-            (garth_home / "oauth2_token.json").write_text(json.dumps(oauth2))
-            garth.configure(domain="garmin.com")
-            garth.resume(str(garth_home))
-            client = Garmin()
-        else:
-            if not garmin_password:
-                raise ValueError(f"Kein gültiger Token für user {user_id} und kein Passwort übergeben.")
-            logger.info("Erstmaligen Login für user %s durchführen …", user_id)
-            client = Garmin(garmin_email, garmin_password)
-            client.login()
-
-        # Verbindung testen
-        client.connectapi  # Wirft Exception wenn nicht authentifiziert
-
-        # Aktuellen Token-Stand zurück in DB speichern
+    if tokens_json:
         try:
-            new_tokens = {
-                "oauth1": json.loads((garth_home / "oauth1_token.json").read_text())
-                if (garth_home / "oauth1_token.json").exists() else {},
-                "oauth2": json.loads((garth_home / "oauth2_token.json").read_text())
-                if (garth_home / "oauth2_token.json").exists() else {},
-            }
-            save_tokens_to_db(user_id, new_tokens)
+            client.client.loads(tokens_json)
+            logger.debug("Login via gecachte Tokens für user %s", user_id)
         except Exception as e:
-            logger.warning("Token konnte nicht gespeichert werden: %s", e)
+            logger.warning("Gecachte Tokens ungültig für user %s (%s) – Passwort-Login …", user_id, e)
+            tokens_json = None
 
-        return client
+    if not tokens_json:
+        if not garmin_password:
+            raise ValueError(f"Kein gültiger Token für user {user_id} und kein Passwort übergeben.")
+        logger.info("Erstmaligen Login für user %s durchführen …", user_id)
+        client.login()
+
+    # Aktuellen Token-Stand zurück in DB speichern
+    try:
+        save_tokens_to_db(user_id, client.client.dumps())
+    except Exception as e:
+        logger.warning("Token konnte nicht gespeichert werden: %s", e)
+
+    return client
