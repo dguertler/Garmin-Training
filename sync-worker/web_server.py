@@ -51,6 +51,12 @@ class SyncHandler(BaseHTTPRequestHandler):
                   ADD COLUMN IF NOT EXISTS hrv_status TEXT,
                   ADD COLUMN IF NOT EXISTS training_status TEXT;
             """),
+            ("011_profile_goals_columns", """
+                ALTER TABLE profile_goals
+                  ADD COLUMN IF NOT EXISTS target_date DATE,
+                  ADD COLUMN IF NOT EXISTS notes TEXT,
+                  ADD COLUMN IF NOT EXISTS weekly_cardio_sessions INTEGER DEFAULT 2;
+            """),
         ]
         results = []
         try:
