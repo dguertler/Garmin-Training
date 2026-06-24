@@ -78,5 +78,53 @@ export async function GET(req: NextRequest) {
     out.user_created = 'skipped – user(s) already exist'
   }
 
+  // 5. Check garmin_raw_metrics – last 3 rows
+  try {
+    const garminRows = await query<Record<string, unknown>>(
+      `SELECT user_id, metric_date,
+              training_readiness_score, hrv_last_night, hrv_status,
+              sleep_score, sleep_duration_seconds,
+              body_battery_morning, resting_heart_rate,
+              steps_total, vo2max, training_status
+       FROM garmin_raw_metrics ORDER BY metric_date DESC LIMIT 3`
+    )
+    out.garmin_raw_metrics = garminRows
+  } catch (e) {
+    out.garmin_raw_metrics = `ERROR: ${e}`
+  }
+
+  // 6. Check garmin_raw_metrics columns
+  try {
+    const grCols = await query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name = 'garmin_raw_metrics' ORDER BY ordinal_position`
+    )
+    out.garmin_raw_metrics_columns = grCols.map(r => r.column_name)
+  } catch (e) {
+    out.garmin_raw_metrics_columns = `ERROR: ${e}`
+  }
+
+  // 7. Last 3 sync_jobs
+  try {
+    const jobs = await query(
+      `SELECT user_id, job_type, status, started_at, finished_at,
+              endpoints_total, endpoints_success, error_details
+       FROM sync_jobs ORDER BY started_at DESC LIMIT 3`
+    )
+    out.sync_jobs = jobs
+  } catch (e) {
+    out.sync_jobs = `ERROR: ${e}`
+  }
+
+  // 8. garmin_tokens status
+  try {
+    const tokens = await query(
+      `SELECT user_id, status, last_refreshed_at, error_message FROM garmin_tokens`
+    )
+    out.garmin_tokens = tokens
+  } catch (e) {
+    out.garmin_tokens = `ERROR: ${e}`
+  }
+
   return NextResponse.json(out, { status: 200 })
 }
