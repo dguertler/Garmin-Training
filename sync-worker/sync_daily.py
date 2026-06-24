@@ -78,14 +78,14 @@ def sync_user_daily(user_id: str, garmin_email: str, garmin_password: str | None
         ("respiration",         "get_respiration_data",      (today,)),
         ("spo2",                "get_spo2_data",             (today,)),
         ("body_composition",    "get_body_composition",      (today, today)),
-        ("weigh_ins",           "get_daily_weigh_ins",       (today, today)),
+        ("weigh_ins",           "get_daily_weigh_ins",       (today,)),
         ("hydration",           "get_hydration_data",        (today,)),
         ("stats_and_body",      "get_stats_and_body",        (today,)),
         ("lactate_threshold",   "get_lactate_threshold",     ()),
         ("morning_readiness",   "get_morning_training_readiness", (today,)),
     ]:
         val, err = _safe(_method(client, method_name), *args)
-        if val is not None:
+        if err is None:
             data[key] = val; results[key] = "ok"
         else:
             errors[key] = err; results[key] = "error"
