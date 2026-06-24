@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Sprache
+
+Alle Antworten immer auf **Deutsch** ausgeben — unabhängig davon, in welcher Sprache der User schreibt.
+
 ## Project Overview
 
 Garmin Training Dashboard — a readiness-driven training and nutrition dashboard for two profiles (Daniel + Frau). Built with Next.js 14 (App Router), PostgreSQL on Railway, and a Python sync-worker that pulls data from Garmin Connect via the `garminconnect` library.
