@@ -167,7 +167,9 @@ def _parse_daily(data: dict, today: str) -> dict:
     # Schlaf
     sleep = data.get("sleep") or {}
     sd = sleep.get("dailySleepDTO") or sleep
-    p["sleep_score"]           = _nested(sd, "sleepScores", "overall") or sd.get("sleepScorePersonalRecord")
+    _raw_score = _nested(sd, "sleepScores", "overall")
+    # Garmin liefert sleepScores.overall als {"value": 85, "qualifierKey": "EXCELLENT"}
+    p["sleep_score"] = (_raw_score.get("value") if isinstance(_raw_score, dict) else _raw_score) or sd.get("sleepScorePersonalRecord")
     p["sleep_duration_seconds"] = sd.get("sleepTimeSeconds")
     p["sleep_deep_seconds"]    = sd.get("deepSleepSeconds")
     p["sleep_rem_seconds"]     = sd.get("remSleepSeconds")
@@ -249,6 +251,12 @@ def _parse_daily(data: dict, today: str) -> dict:
         p["lactate_threshold_raw"]  = json.dumps(lt)
 
     p["stats_and_body_raw"] = json.dumps(data.get("stats_and_body") or {})
+
+    # Absicherung: psycopg2 kann keine Python-Dicts als SQL-Parameter verarbeiten
+    for _k, _v in list(p.items()):
+        if isinstance(_v, (dict, list)):
+            logger.warning("_parse_daily: unserialiserter Wert in Spalte '%s' – wird zu JSON konvertiert", _k)
+            p[_k] = json.dumps(_v)
 
     return p
 
