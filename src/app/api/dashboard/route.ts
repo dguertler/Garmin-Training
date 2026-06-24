@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const today = new Date().toISOString().split('T')[0]
 
   const [garmin, dailyInput, nutrition, readiness, syncStatus,
-         sleep7, steps7, weightHistory, weekPlan, gear] = await Promise.all([
+         sleep7, steps7, weightHistory, weekPlan, gear, garmin30d] = await Promise.all([
 
     // Heutige Garmin-Rohdaten
     queryOne(
@@ -108,6 +108,14 @@ export async function GET(req: NextRequest) {
          AND gear_type = 'shoes'
        ORDER BY distance_meters DESC`,
       [userId]
+    ),
+
+    // 30-Tage-Trend für Kacheln
+    query<{ metric_date: string; resting_heart_rate: number | null; vo2max: string | null; fitness_age: number | null; steps_total: number | null; calories_total: number | null; calories_active: number | null }>(
+      `SELECT metric_date, resting_heart_rate, vo2max, fitness_age, steps_total, calories_total, calories_active
+       FROM garmin_raw_metrics WHERE user_id = $1 AND metric_date <= $2
+       ORDER BY metric_date ASC LIMIT 30`,
+      [userId, today]
     ),
   ])
 
@@ -204,6 +212,15 @@ export async function GET(req: NextRequest) {
       ...g,
       distance_km: Math.round((g.distance_meters ?? 0) / 100) / 10,
       warning: g.distance_meters > g.max_distance_meters * 0.9,
+    })),
+    garmin30d: (garmin30d as Array<{ metric_date: string; resting_heart_rate: number | null; vo2max: string | null; fitness_age: number | null; steps_total: number | null; calories_total: number | null; calories_active: number | null }>).map(r => ({
+      date: String(r.metric_date).substring(0, 10),
+      resting_heart_rate: r.resting_heart_rate,
+      vo2max: r.vo2max != null ? parseFloat(r.vo2max) : null,
+      fitness_age: r.fitness_age,
+      steps_total: r.steps_total,
+      calories_total: r.calories_total,
+      calories_active: r.calories_active,
     })),
   })
 }

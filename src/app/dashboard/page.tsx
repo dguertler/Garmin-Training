@@ -61,6 +61,15 @@ interface DashboardData {
   concurrent_warning: string | null
   syncStatus: Record<string, unknown> | null
   gear: Array<{ gear_name: string; distance_km: number; warning: boolean }>
+  garmin30d: Array<{
+    date: string
+    resting_heart_rate: number | null
+    vo2max: number | null
+    fitness_age: number | null
+    steps_total: number | null
+    calories_total: number | null
+    calories_active: number | null
+  }>
 }
 
 export default function DashboardPage() {
@@ -186,10 +195,35 @@ export default function DashboardPage() {
           neatBaseline={data?.steps.neat_baseline}
           neatWarning={data?.steps.neat_warning}
         />
-        <StatCard label="VO2max" value={g?.vo2max != null ? String(g.vo2max) : '–'} unit="" />
-        <StatCard label="Ruhepuls" value={g?.resting_heart_rate != null ? String(g.resting_heart_rate) : '–'} unit="bpm" />
-        <StatCard label="Fitness-Alter" value={g?.fitness_age != null ? String(g.fitness_age) : '–'} unit="J" />
+        <TrendStatCard
+          label="VO2max"
+          value={lastKnown(data?.garmin30d ?? [], 'vo2max')}
+          unit="ml/kg/min"
+          values={(data?.garmin30d ?? []).map(r => r.vo2max)}
+          color="#22c55e"
+        />
+        <TrendStatCard
+          label="Ruhepuls"
+          value={lastKnown(data?.garmin30d ?? [], 'resting_heart_rate')}
+          unit="bpm"
+          values={(data?.garmin30d ?? []).map(r => r.resting_heart_rate)}
+          color="#60a5fa"
+          invertGood
+        />
+        <TrendStatCard
+          label="Fitness-Alter"
+          value={lastKnown(data?.garmin30d ?? [], 'fitness_age')}
+          unit="J"
+          values={(data?.garmin30d ?? []).map(r => r.fitness_age)}
+          color="#a78bfa"
+          invertGood
+        />
       </div>
+
+      {/* Kalorien */}
+      {(data?.garmin30d ?? []).some(r => r.calories_total) && (
+        <CalorieCard data={data?.garmin30d ?? []} />
+      )}
 
       {/* Concurrent-Training-Warnung */}
       {data?.concurrent_warning && (
@@ -234,13 +268,102 @@ export default function DashboardPage() {
   )
 }
 
-function StatCard({ label, value, unit }: { label: string; value: string; unit: string }) {
+type Garmin30dRow = {
+  date: string
+  resting_heart_rate: number | null
+  vo2max: number | null
+  fitness_age: number | null
+  steps_total: number | null
+  calories_total: number | null
+  calories_active: number | null
+}
+
+function lastKnown(rows: Garmin30dRow[], key: keyof Garmin30dRow): string {
+  const val = [...rows].reverse().find(r => r[key] != null)?.[key]
+  return val != null ? String(val) : '–'
+}
+
+function MiniSparkline({ values, color }: { values: (number | null)[]; color: string }) {
+  const nonNull = values.filter((v): v is number => v !== null)
+  if (nonNull.length < 2) return null
+  const min = Math.min(...nonNull)
+  const max = Math.max(...nonNull)
+  const range = max - min || 1
+  const w = 100, h = 28
+  const allIdxs = values.map((v, i) => ({ v, i })).filter(({ v }) => v !== null) as { v: number; i: number }[]
+  const pts = allIdxs.map(({ v, i }) => {
+    const x = (i / (values.length - 1)) * w
+    const y = h - ((v - min) / range) * (h - 4) - 2
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
   return (
-    <div className="card-sm flex flex-col gap-1">
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="mt-1 opacity-70">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function TrendStatCard({ label, value, unit, values, color, invertGood }: {
+  label: string; value: string; unit?: string
+  values: (number | null)[]; color: string; invertGood?: boolean
+}) {
+  const nonNull = values.filter((v): v is number => v !== null)
+  const trend = nonNull.length >= 2 ? nonNull[nonNull.length - 1] - nonNull[0] : null
+  const trendGood = trend !== null ? (invertGood ? trend < 0 : trend > 0) : null
+  return (
+    <div className="card-sm flex flex-col gap-0.5">
       <span className="stat-label">{label}</span>
       <div className="flex items-baseline gap-1">
         <span className="text-xl font-bold text-slate-100">{value}</span>
         {unit && <span className="text-xs text-slate-400">{unit}</span>}
+        {trend !== null && (
+          <span className={`text-xs ml-auto font-medium ${trendGood ? 'text-prime' : 'text-low'}`}>
+            {trend > 0 ? '+' : ''}{trend % 1 === 0 ? trend : trend.toFixed(1)}
+          </span>
+        )}
+      </div>
+      <MiniSparkline values={values} color={color} />
+    </div>
+  )
+}
+
+function CalorieCard({ data }: { data: Garmin30dRow[] }) {
+  const last14 = data.slice(-14)
+  const maxCal = Math.max(...last14.map(r => r.calories_total ?? 0)) || 1
+  const WEEKDAY = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+  return (
+    <div className="card space-y-3">
+      <h3 className="font-semibold text-slate-200 text-sm">Kalorienverbrauch (14 Tage)</h3>
+      <div className="flex items-end gap-1 h-20">
+        {last14.map((r, i) => {
+          const total = r.calories_total ?? 0
+          const active = r.calories_active ?? 0
+          const d = new Date(r.date)
+          const wd = WEEKDAY[d.getDay()]
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block text-xs bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                {total} kcal ({active} aktiv)
+              </div>
+              <div className="w-full flex flex-col justify-end" style={{ height: '64px' }}>
+                <div
+                  className="w-full bg-slate-600 rounded-sm"
+                  style={{ height: `${total ? (total / maxCal) * 100 : 0}%` }}
+                >
+                  <div
+                    className="w-full bg-prime rounded-sm"
+                    style={{ height: `${total ? (active / total) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+              <span className="text-[9px] text-slate-500">{wd}</span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="flex gap-4 text-xs text-slate-400">
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-prime inline-block" />Aktiv</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-slate-600 inline-block" />Gesamt</span>
       </div>
     </div>
   )

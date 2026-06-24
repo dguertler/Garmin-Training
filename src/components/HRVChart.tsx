@@ -18,9 +18,12 @@ interface Props {
   lastNight?: number | null
 }
 
+const WEEKDAY = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+
 function fmt(dateStr: string) {
   const d = new Date(dateStr)
-  return `${d.getDate()}.${d.getMonth() + 1}.`
+  const wd = WEEKDAY[d.getDay()]
+  return `${wd} ${d.getDate()}.${d.getMonth() + 1}.`
 }
 
 export default function HRVChart({ trend, baselineLow, baselineHigh, lastNight }: Props) {
@@ -75,7 +78,7 @@ export default function HRVChart({ trend, baselineLow, baselineHigh, lastNight }
             titleColor: '#94a3b8',
             bodyColor: '#f1f5f9',
             callbacks: {
-              label: ctx => ` Readiness: ${ctx.raw ?? '–'}`,
+              label: ctx => ` Bereitschaft: ${ctx.raw ?? '–'}/100`,
             },
           },
           legend: { display: false },
@@ -102,10 +105,10 @@ export default function HRVChart({ trend, baselineLow, baselineHigh, lastNight }
   return (
     <div className="card space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-slate-200">Readiness-Verlauf (30 Tage)</h3>
+        <h3 className="font-semibold text-slate-200">Trainingsbereitschaft (30 Tage)</h3>
         {lastNight !== null && lastNight !== undefined && (
           <span className="text-xs text-slate-400">
-            Gestern Nacht: <span className="text-slate-200 font-semibold">{lastNight}</span>
+            HRV gestern Nacht: <span className="text-slate-200 font-semibold">{lastNight} ms</span>
           </span>
         )}
       </div>
