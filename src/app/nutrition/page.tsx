@@ -76,6 +76,18 @@ export default function NutritionPage() {
   )
 
   const t = data?.today
+  // meal_plan kann als Array (JSONB) oder String (TEXT) aus der DB kommen
+  const mealPlanData = Array.isArray(t?.meal_plan)
+    ? (t.meal_plan as Parameters<typeof MealPlan>[0]['meals'])
+    : typeof t?.meal_plan === 'string'
+      ? (() => { try { return JSON.parse(t.meal_plan as string) } catch { return null } })()
+      : null
+
+  // Gewichtsverlauf aufsteigend sortieren (API liefert DESC)
+  const historyAsc = data?.history ? [...data.history].reverse() : []
+  const weightTrendMap = historyAsc.length
+    ? new Map(calcWeightTrend(historyAsc.map(h => ({ date: h.entry_date, weight: h.weight_kg }))).map(e => [e.date, e.trend]))
+    : new Map<string, number | null>()
 
   return (
     <div className="space-y-5">
@@ -94,20 +106,22 @@ export default function NutritionPage() {
       {t ? (
         <div className="card space-y-4">
           <div className="flex flex-wrap gap-3 justify-between">
-            <InfoBlock label="Gewicht"    value={`${t.weight_kg} kg`} />
-            <InfoBlock label="KFA"        value={`${t.body_fat_pct}%`} />
-            <InfoBlock label="Magermasse" value={`${t.lean_mass_kg} kg`} />
-            <InfoBlock label="BMR"        value={`${t.bmr_kcal} kcal`} />
-            <InfoBlock label="TDEE est."  value={`${Math.round(t.tdee_kcal)} kcal`} />
-            <InfoBlock label="Ziel"       value={`${t.calories_target} kcal`} />
+            <InfoBlock label="Gewicht"    value={`${t.weight_kg ?? '–'} kg`} />
+            <InfoBlock label="KFA"        value={`${t.body_fat_pct ?? '–'}%`} />
+            <InfoBlock label="Magermasse" value={`${t.lean_mass_kg ?? '–'} kg`} />
+            <InfoBlock label="BMR"        value={`${t.bmr_kcal ?? '–'} kcal`} />
+            <InfoBlock label="TDEE est."  value={t.tdee_kcal != null ? `${Math.round(t.tdee_kcal)} kcal` : '–'} />
+            <InfoBlock label="Ziel"       value={t.calories_target != null ? `${t.calories_target} kcal` : '–'} />
           </div>
 
           {/* Makro-Balken */}
-          <div className="space-y-2 pt-2">
-            <MacroBar label="Protein"       value={t.protein_target_g} max={300} color="#22c55e" unit="g" />
-            <MacroBar label="Kohlenhydrate" value={t.carbs_target_g}   max={400} color="#3b82f6" unit="g" />
-            <MacroBar label="Fett"          value={t.fat_target_g}     max={120} color="#f59e0b" unit="g" />
-          </div>
+          {t.calories_target != null && (
+            <div className="space-y-2 pt-2">
+              <MacroBar label="Protein"       value={t.protein_target_g ?? 0} max={300} color="#22c55e" unit="g" />
+              <MacroBar label="Kohlenhydrate" value={t.carbs_target_g ?? 0}   max={400} color="#3b82f6" unit="g" />
+              <MacroBar label="Fett"          value={t.fat_target_g ?? 0}     max={120} color="#f59e0b" unit="g" />
+            </div>
+          )}
 
           <div className="flex gap-2">
             {t.is_training_day && <span className="badge-prime">Trainingstag</span>}
@@ -126,16 +140,16 @@ export default function NutritionPage() {
 
       {/* Mahlzeitenplan */}
       <MealPlan
-        meals={t?.meal_plan as Parameters<typeof MealPlan>[0]['meals'] ?? null}
+        meals={mealPlanData}
         isTrainingDay={t?.is_training_day ?? false}
       />
 
       {/* Gewichtsverlauf-Chart */}
-      {data?.history?.length ? (
+      {historyAsc.length ? (
         <WeightChart
-          data={data.history.map(d => ({
+          data={historyAsc.map(d => ({
             ...d,
-            trend_kg: calcWeightTrend(data.history.map(h => ({ date: h.entry_date, weight: h.weight_kg }))).find(t => t.date === d.entry_date)?.trend ?? null,
+            trend_kg: weightTrendMap.get(d.entry_date) ?? null,
           }))}
           height={160}
         />

@@ -194,6 +194,7 @@ export default function DashboardPage() {
           avg7={data?.steps.avg7 ?? null}
           neatBaseline={data?.steps.neat_baseline}
           neatWarning={data?.steps.neat_warning}
+          values={(data?.garmin30d ?? []).map(r => r.steps_total)}
         />
         <TrendStatCard
           label="VO2max"
@@ -331,21 +332,37 @@ function CalorieCard({ data }: { data: Garmin30dRow[] }) {
   const last14 = data.slice(-14)
   const maxCal = Math.max(...last14.map(r => r.calories_total ?? 0)) || 1
   const WEEKDAY = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+  const withCal = last14.filter(r => r.calories_total)
+  const avgTotal = withCal.length
+    ? Math.round(withCal.reduce((s, r) => s + (r.calories_total ?? 0), 0) / withCal.length)
+    : null
+  const avgActive = withCal.length
+    ? Math.round(withCal.reduce((s, r) => s + (r.calories_active ?? 0), 0) / withCal.length)
+    : null
   return (
     <div className="card space-y-3">
-      <h3 className="font-semibold text-slate-200 text-sm">Kalorienverbrauch (14 Tage)</h3>
+      <div className="flex items-baseline justify-between">
+        <h3 className="font-semibold text-slate-200 text-sm">Kalorienverbrauch (14 Tage)</h3>
+        {avgTotal && (
+          <span className="text-xs text-slate-400">
+            Ø <span className="text-slate-200 font-semibold">{avgTotal.toLocaleString('de')}</span> kcal/Tag
+            {avgActive ? <span className="text-slate-500"> ({avgActive.toLocaleString('de')} aktiv)</span> : null}
+          </span>
+        )}
+      </div>
       <div className="flex items-end gap-1 h-20">
         {last14.map((r, i) => {
           const total = r.calories_total ?? 0
           const active = r.calories_active ?? 0
           const d = new Date(r.date)
           const wd = WEEKDAY[d.getDay()]
+          const dayLabel = `${wd} ${d.getDate()}.${d.getMonth() + 1}.`
           return (
             <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative">
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block text-xs bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded whitespace-nowrap z-10">
                 {total} kcal ({active} aktiv)
               </div>
-              <div className="w-full flex flex-col justify-end" style={{ height: '64px' }}>
+              <div className="w-full flex flex-col justify-end" style={{ height: '56px' }}>
                 <div
                   className="w-full bg-slate-600 rounded-sm"
                   style={{ height: `${total ? (total / maxCal) * 100 : 0}%` }}
@@ -356,7 +373,8 @@ function CalorieCard({ data }: { data: Garmin30dRow[] }) {
                   />
                 </div>
               </div>
-              <span className="text-[9px] text-slate-500">{wd}</span>
+              <span className="text-[8px] text-slate-500 leading-tight text-center">{wd}</span>
+              <span className="text-[8px] text-slate-600 leading-tight text-center">{d.getDate()}.{d.getMonth() + 1}.</span>
             </div>
           )
         })}
