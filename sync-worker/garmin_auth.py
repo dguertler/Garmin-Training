@@ -69,13 +69,14 @@ def save_tokens_to_db(user_id: str, token_json: str) -> None:
     with get_db_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO garmin_tokens (user_id, token_data_enc, status, last_refreshed_at)
-            VALUES (%s, %s, 'active', NOW())
+            INSERT INTO garmin_tokens (user_id, token_data_enc, status, last_refreshed_at, error_message)
+            VALUES (%s, %s, 'active', NOW(), NULL)
             ON CONFLICT (user_id) DO UPDATE
                 SET token_data_enc    = EXCLUDED.token_data_enc,
                     status            = 'active',
                     last_refreshed_at = NOW(),
-                    updated_at        = NOW()
+                    updated_at        = NOW(),
+                    error_message     = NULL
             """,
             (user_id, enc),
         )
