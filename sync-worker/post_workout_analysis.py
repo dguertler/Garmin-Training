@@ -27,7 +27,7 @@ def _get_activity(conn, activity_id: str) -> dict | None:
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(
             """SELECT id, user_id, activity_type, start_time, distance_meters,
-                      duration_seconds, avg_heart_rate, avg_pace_min_per_km,
+                      duration_seconds, avg_hr, avg_pace_per_km,
                       training_effect_aerobic, training_effect_anaerobic
                FROM garmin_activities WHERE id = %s""",
             (activity_id,)
@@ -39,7 +39,7 @@ def _get_prev_similar(conn, user_id: str, activity_type: str, current_id: str) -
     """Letzte Aktivität desselben Typs vor der aktuellen."""
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(
-            """SELECT id, distance_meters, duration_seconds, avg_heart_rate, avg_pace_min_per_km
+            """SELECT id, distance_meters, duration_seconds, avg_hr, avg_pace_per_km
                FROM garmin_activities
                WHERE user_id = %s AND activity_type = %s AND id != %s
                ORDER BY start_time DESC LIMIT 1""",
@@ -51,7 +51,7 @@ def _get_prev_similar(conn, user_id: str, activity_type: str, current_id: str) -
 def _get_hr_zones(conn, activity_id: str) -> list[dict]:
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(
-            "SELECT zone_number, time_in_zone_seconds FROM garmin_activity_hr_zones WHERE activity_id = %s ORDER BY zone_number",
+            "SELECT zone_number, seconds_in_zone FROM garmin_activity_hr_zones WHERE activity_id = %s ORDER BY zone_number",
             (activity_id,)
         )
         return cur.fetchall()
@@ -60,7 +60,7 @@ def _get_hr_zones(conn, activity_id: str) -> list[dict]:
 def _get_splits(conn, activity_id: str) -> list[dict]:
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(
-            "SELECT split_index, distance_meters, duration_seconds, avg_heart_rate, avg_pace_min_per_km FROM garmin_activity_splits WHERE activity_id = %s ORDER BY split_index",
+            "SELECT split_index, distance_meters, duration_seconds, avg_hr, avg_pace_per_km FROM garmin_activity_splits WHERE activity_id = %s ORDER BY split_index",
             (activity_id,)
         )
         return cur.fetchall()
@@ -79,11 +79,11 @@ def _calc_aerobic_decoupling(splits: list[dict]) -> float | None:
     second = splits[mid:]
 
     def hr_pace_ratio(chunk):
-        valid = [s for s in chunk if s["avg_heart_rate"] and s["avg_pace_min_per_km"] and s["avg_pace_min_per_km"] > 0]
+        valid = [s for s in chunk if s["avg_hr"] and s["avg_pace_per_km"] and s["avg_pace_per_km"] > 0]
         if not valid:
             return None
-        avg_hr = sum(s["avg_heart_rate"] for s in valid) / len(valid)
-        avg_pace = sum(s["avg_pace_min_per_km"] for s in valid) / len(valid)
+        avg_hr = sum(s["avg_hr"] for s in valid) / len(valid)
+        avg_pace = sum(s["avg_pace_per_km"] for s in valid) / len(valid)
         return avg_hr / avg_pace  # höher = schlechter (mehr HR pro Pace-Einheit)
 
     r1 = hr_pace_ratio(first)
@@ -96,7 +96,7 @@ def _calc_aerobic_decoupling(splits: list[dict]) -> float | None:
 
 def _calc_zone_pcts(hr_zones: list[dict]) -> tuple[float, float, float]:
     """Gibt (z1z2_pct, z3_pct, z4z5_pct) zurück."""
-    zone_secs = {z["zone_number"]: z["time_in_zone_seconds"] for z in hr_zones}
+    zone_secs = {z["zone_number"]: z["seconds_in_zone"] or 0 for z in hr_zones}
     total = sum(zone_secs.values())
     if total == 0:
         return 0.0, 0.0, 0.0
@@ -186,10 +186,10 @@ def analyze_activity(activity_id: str) -> bool:
         dist_vs_prev = None
 
         if prev:
-            if act.get("avg_pace_min_per_km") and prev.get("avg_pace_min_per_km"):
-                pace_vs_prev = round(float(act["avg_pace_min_per_km"]) - float(prev["avg_pace_min_per_km"]), 2)
-            if act.get("avg_heart_rate") and prev.get("avg_heart_rate"):
-                hr_vs_prev = round(float(act["avg_heart_rate"]) - float(prev["avg_heart_rate"]), 2)
+            if act.get("avg_pace_per_km") and prev.get("avg_pace_per_km"):
+                pace_vs_prev = round(float(act["avg_pace_per_km"]) - float(prev["avg_pace_per_km"]), 2)
+            if act.get("avg_hr") and prev.get("avg_hr"):
+                hr_vs_prev = round(float(act["avg_hr"]) - float(prev["avg_hr"]), 2)
             if act.get("distance_meters") and prev.get("distance_meters"):
                 dist_vs_prev = round(float(act["distance_meters"]) - float(prev["distance_meters"]), 0)
 

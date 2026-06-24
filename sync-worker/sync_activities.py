@@ -163,7 +163,7 @@ def _sync_hr_zones(client, db_id: str, garmin_id: int) -> None:
 
 def _sync_details(client, db_id: str, garmin_id: int) -> None:
     try:
-        details = client.get_activity_details(garmin_id, maxpollinterval=60)
+        details = client.get_activity_details(garmin_id)
     except Exception as e:
         logger.warning("Details für %s nicht verfügbar: %s", garmin_id, e)
         return

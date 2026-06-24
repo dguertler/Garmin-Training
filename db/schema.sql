@@ -358,6 +358,10 @@ CREATE TABLE daily_readiness (
     workout_status          TEXT DEFAULT 'planned',
     completed_at            TIMESTAMPTZ,
 
+    -- Garmin status strings
+    hrv_status              TEXT,           -- 'Balanced' | 'Low' | 'Unbalanced' | 'Poor'
+    training_status         TEXT,           -- Garmin Training Status phrase
+
     -- Deload-Flag
     is_deload_week          BOOLEAN DEFAULT FALSE,
 
