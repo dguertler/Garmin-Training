@@ -13,6 +13,9 @@ Garmin Training Dashboard — a readiness-driven training and nutrition dashboar
 ## Deployment & Infrastructure
 
 - **Hosting**: Railway (two services: `web` = Next.js, `sync-worker` = Python cron)
+- **URLs**:
+  - Web-Service: `https://garmin-training-production.up.railway.app`
+  - Sync-Worker: `https://sync-worker-production-1ba0.up.railway.app`
 - **Database**: PostgreSQL on Railway — connection via `DATABASE_URL` env var
 - **Branch strategy**: Always push to `main`. Do NOT use feature branches for deployment — Railway deploys from `main` only.
 - **Railway login credentials**: email and initial password are stored in Railway environment variables (`RAILWAY_EMAIL`, `RAILWAY_INITIAL_PASSWORD` or similar — check Railway dashboard env vars)

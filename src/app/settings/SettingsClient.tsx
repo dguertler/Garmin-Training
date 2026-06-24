@@ -231,7 +231,7 @@ export default function SettingsClient() {
         if (pollRef.current) clearInterval(pollRef.current)
         if (s.last_sync?.status === 'error') {
           setGarminMsg({ type: 'err', text: 'Sync fehlgeschlagen – Credentials prüfen.' })
-        } else if (s.last_sync?.status === 'done') {
+        } else if (s.last_sync?.status === 'success' || s.last_sync?.status === 'partial') {
           setGarminMsg({ type: 'ok', text: 'Sync erfolgreich. Daten werden geladen.' })
         }
       }
@@ -504,7 +504,7 @@ export default function SettingsClient() {
             {garminStatus.last_sync && (
               <div>
                 Letzter Sync:{' '}
-                <span className={garminStatus.last_sync.status === 'done' ? 'text-prime' : garminStatus.last_sync.status === 'running' ? 'text-amber-400' : 'text-red-400'}>
+                <span className={garminStatus.last_sync.status === 'success' ? 'text-prime' : garminStatus.last_sync.status === 'running' ? 'text-amber-400' : 'text-red-400'}>
                   {garminStatus.last_sync.status === 'running' ? 'läuft…' : garminStatus.last_sync.finished_at ? new Date(garminStatus.last_sync.finished_at).toLocaleString('de-DE') : '—'}
                 </span>
               </div>

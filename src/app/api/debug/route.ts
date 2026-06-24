@@ -78,14 +78,16 @@ export async function GET(req: NextRequest) {
     out.user_created = 'skipped – user(s) already exist'
   }
 
-  // 5. Check garmin_raw_metrics – last 3 rows
+  // 5. Check garmin_raw_metrics – last 3 rows (key fields + raw payloads)
   try {
     const garminRows = await query<Record<string, unknown>>(
       `SELECT user_id, metric_date,
               training_readiness_score, hrv_last_night, hrv_status,
               sleep_score, sleep_duration_seconds,
               body_battery_morning, resting_heart_rate,
-              steps_total, vo2max, training_status
+              steps_total, vo2max, training_status,
+              training_readiness_factors,
+              hrv_raw, sleep_raw, user_summary_raw, body_battery_raw
        FROM garmin_raw_metrics ORDER BY metric_date DESC LIMIT 3`
     )
     out.garmin_raw_metrics = garminRows

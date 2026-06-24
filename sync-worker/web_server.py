@@ -117,11 +117,12 @@ class SyncHandler(BaseHTTPRequestHandler):
 
         garmin_email = body.get("garmin_email") or row[0]
         garmin_password = body.get("garmin_password")  # Nur beim erstmaligen Login
+        job_id = body.get("job_id")  # Von Web-Service übergeben – wird direkt verwendet
 
         # Sync in separatem Thread (Request sofort zurückgeben)
         def run():
             try:
-                sync_user_daily(user_id, garmin_email, garmin_password)
+                sync_user_daily(user_id, garmin_email, garmin_password, job_id=job_id)
             except Exception as e:
                 logger.error("Manueller Sync fehlgeschlagen: %s", e)
 

@@ -30,25 +30,32 @@ def _method(client, name):
     return getattr(client, name, None)
 
 
-def sync_user_daily(user_id: str, garmin_email: str, garmin_password: str | None = None) -> dict:
+def sync_user_daily(user_id: str, garmin_email: str, garmin_password: str | None = None, job_id: str | None = None) -> dict:
     """
     Synchronisiert alle täglichen Garmin-Endpunkte für einen User.
     Gibt Sync-Ergebnis zurück: {success: bool, endpoints: {name: 'ok'|'error'}, errors: {...}}
+    Falls job_id übergeben wird, wird der bestehende Job aktualisiert statt ein neuer erstellt.
     """
-    job_id = str(uuid.uuid4())
     today = date.today().isoformat()
     results: dict[str, str] = {}
     errors: dict[str, str] = {}
 
-    # Sync-Job starten
+    # Sync-Job starten (existierenden verwenden oder neuen anlegen)
     with get_db_conn() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO sync_jobs (id, user_id, job_type, status)
-            VALUES (%s, %s, 'daily', 'running')
-            """,
-            (job_id, user_id),
-        )
+        if job_id:
+            cur.execute(
+                "UPDATE sync_jobs SET status = 'running', started_at = NOW() WHERE id = %s",
+                (job_id,),
+            )
+        else:
+            job_id = str(uuid.uuid4())
+            cur.execute(
+                """
+                INSERT INTO sync_jobs (id, user_id, job_type, status)
+                VALUES (%s, %s, 'daily', 'running')
+                """,
+                (job_id, user_id),
+            )
         conn.commit()
 
     try:
