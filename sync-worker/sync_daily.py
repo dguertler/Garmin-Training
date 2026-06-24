@@ -157,10 +157,10 @@ def _parse_daily(data: dict, today: str) -> dict:
     # HRV
     hrv = data.get("hrv") or {}
     p["hrv_weekly_average"]  = _nested(hrv, "hrvSummary", "weeklyAvg")
-    p["hrv_last_night"]      = _nested(hrv, "hrvSummary", "lastNight")
+    p["hrv_last_night"]      = _nested(hrv, "hrvSummary", "lastNight") or _nested(hrv, "hrvSummary", "lastNightAvg")
     p["hrv_5night_average"]  = _nested(hrv, "hrvSummary", "lastNightAvg")
-    p["hrv_baseline_low"]    = _nested(hrv, "hrvSummary", "baselineLowUpper")
-    p["hrv_baseline_high"]   = _nested(hrv, "hrvSummary", "baselineBalancedUpper")
+    p["hrv_baseline_low"]    = _nested(hrv, "hrvSummary", "baselineLowUpper") or _nested(hrv, "hrvSummary", "baseline", "lowUpper")
+    p["hrv_baseline_high"]   = _nested(hrv, "hrvSummary", "baselineBalancedUpper") or _nested(hrv, "hrvSummary", "baseline", "balancedUpper")
     p["hrv_status"]          = _nested(hrv, "hrvSummary", "status")
     p["hrv_raw"]             = json.dumps(hrv)
 
@@ -200,7 +200,7 @@ def _parse_daily(data: dict, today: str) -> dict:
 
     # Resting HR
     rhr = data.get("resting_hr") or {}
-    p["resting_heart_rate"] = rhr.get("value") or rhr.get("restingHeartRate")
+    p["resting_heart_rate"] = rhr.get("value") or rhr.get("restingHeartRate") or us.get("restingHeartRate")
     p["heart_rates_raw"]    = json.dumps(data.get("heart_rates") or {})
 
     # Stress
