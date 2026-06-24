@@ -115,7 +115,7 @@ def get_garmin_client(user_id: str, garmin_email: str, garmin_password: str | No
 
     if tokens_json:
         try:
-            client.client.loads(tokens_json)
+            client.login(tokenstore=tokens_json)
             logger.debug("Login via gecachte Tokens für user %s", user_id)
         except Exception as e:
             logger.warning("Gecachte Tokens ungültig für user %s (%s) – Passwort-Login …", user_id, e)
