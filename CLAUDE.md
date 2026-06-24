@@ -107,7 +107,18 @@ GARMIN_ENCRYPTION_KEY        # AES key for token encryption
 NEXT_PUBLIC_VAPID_PUBLIC_KEY
 VAPID_PRIVATE_KEY
 VAPID_SUBJECT                # mailto:email@domain.com
+MIGRATE_KEY                  # Schutzkey für /api/debug und /api/db/migrate – in Railway Web Service gesetzt
 ```
+
+### Debug-Endpunkt
+
+`GET /api/debug?key=<MIGRATE_KEY>` zeigt:
+- Letzte Einträge in `garmin_raw_metrics` (Spalten + Werte)
+- Status der letzten 3 `sync_jobs`
+- `garmin_tokens` Status (active/error + error_message)
+- Spalten in `user_credentials`
+
+Den Wert von MIGRATE_KEY in Railway nachschlagen (Web Service → Variables). Nicht in Git committen.
 
 ## Known Tech Debt
 
