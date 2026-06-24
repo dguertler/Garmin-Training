@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require('path')
+
 const nextConfig = {
   experimental: {
     instrumentationHook: true,
@@ -11,6 +13,12 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   webpack: (config, { isServer }) => {
+    // Expliziter @/ Alias – Fallback falls tsconfig-Auflösung in Railway fehlt
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, 'src'),
+    }
+
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
