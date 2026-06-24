@@ -40,11 +40,6 @@ const MIGRATIONS = [
 ]
 
 export async function GET(req: NextRequest) {
-  const key = req.nextUrl.searchParams.get('key')
-  if (!key || key !== process.env.MIGRATE_KEY) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
   const results: { name: string; status: string; error?: string }[] = []
 
   for (const migration of MIGRATIONS) {
