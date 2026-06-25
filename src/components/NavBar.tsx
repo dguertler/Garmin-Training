@@ -71,8 +71,8 @@ export default function NavBar({ userName }: { userName?: string }) {
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
 
         {/* Logo */}
-        <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-signal flex items-center justify-center shrink-0">
+        <Link href="/dashboard" aria-label="Garmin Training – zur Startseite" className="flex items-center gap-2.5 shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-signal flex items-center justify-center shrink-0" aria-hidden>
             <span className="text-[10px] font-bold text-white tracking-tight"
               style={{ fontFamily: 'var(--font-display)' }}>GT</span>
           </div>
@@ -92,7 +92,7 @@ export default function NavBar({ userName }: { userName?: string }) {
                 href={n.href}
                 className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-150
                   ${active
-                    ? 'bg-signal/12 text-signal'
+                    ? 'bg-signal/10 text-signal'
                     : 'text-fade hover:text-ink hover:bg-white/5'
                   }`}
               >

@@ -83,7 +83,7 @@ function DayCard({ day, isToday }: { day: PlanDay; isToday: boolean }) {
       <span className={`text-xs font-semibold ${isToday ? 'text-prime' : 'text-slate-400'}`}>
         {dayName}
       </span>
-      <span className="text-lg">{workout.icon}</span>
+      <span className="text-lg" aria-hidden="true">{workout.icon}</span>
       <span className="text-xs text-slate-400 text-center leading-tight">{workout.label}</span>
       {day.readiness_score != null && (
         <span className="text-xs font-bold text-slate-300">{day.readiness_score}</span>
@@ -94,29 +94,29 @@ function DayCard({ day, isToday }: { day: PlanDay; isToday: boolean }) {
         <button
           onClick={() => markStatus(status)}
           disabled={loading}
+          aria-label="Status zurücksetzen"
           className={`text-xs font-bold mt-0.5 ${
             status === 'done' ? 'text-prime' :
             status === 'skipped' ? 'text-red-400' :
             'text-amber-400'
           }`}
-          title="Klicken zum Zurücksetzen"
         >
-          {STATUS_ICON[status]}
+          <span aria-hidden="true">{STATUS_ICON[status]}</span>
         </button>
       ) : (isPast || isToday) && !isRest ? (
         <div className="flex gap-0.5 mt-0.5">
           <button
             onClick={() => markStatus('done')}
             disabled={loading}
+            aria-label="Als erledigt markieren"
             className="w-4 h-4 rounded text-xs bg-prime/20 text-prime hover:bg-prime/40 transition-all leading-none"
-            title="Erledigt"
-          >✓</button>
+          ><span aria-hidden="true">✓</span></button>
           <button
             onClick={() => markStatus('skipped')}
             disabled={loading}
+            aria-label="Als übersprungen markieren"
             className="w-4 h-4 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/40 transition-all leading-none"
-            title="Übersprungen"
-          >✕</button>
+          ><span aria-hidden="true">✕</span></button>
         </div>
       ) : null}
     </div>

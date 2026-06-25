@@ -6,6 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Alle Antworten immer auf **Deutsch** ausgeben — unabhängig davon, in welcher Sprache der User schreibt.
 
+## Design-Skills (Pflicht bei UI-Arbeit)
+
+Immer wenn eine neue HTML-Seite, Next.js-Page oder UI-Komponente erstellt oder grundlegend überarbeitet wird:
+
+1. **Zuerst** den Skill `.claude/skills/frontend-design.md` anwenden — Designplan erarbeiten (Palette, Typografie, Layout, Signatur-Element), gegen generische Defaults prüfen, erst dann coden.
+2. **Danach** den Skill `.claude/skills/web-design-guidelines.md` ausführen — Vercel Web Interface Guidelines via WebFetch laden und die erstellten Dateien dagegen prüfen. Befunde im Format `datei:zeile` ausgeben und Verstöße direkt beheben.
+
+Diese Reihenfolge ist verbindlich: erst `frontend-design`, dann `web-design-guidelines`.
+
 ## Project Overview
 
 Garmin Training Dashboard — a readiness-driven training and nutrition dashboard for two profiles (Daniel + Frau). Built with Next.js 14 (App Router), PostgreSQL on Railway, and a Python sync-worker that pulls data from Garmin Connect via the `garminconnect` library.

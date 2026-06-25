@@ -55,8 +55,9 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="card space-y-4">
           <div>
-            <label className="stat-label block mb-1.5">E-Mail</label>
+            <label htmlFor="login-email" className="stat-label block mb-1.5">E-Mail</label>
             <input
+              id="login-email"
               type="email"
               className="input-field w-full"
               placeholder="name@example.com"
@@ -67,8 +68,9 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="stat-label block mb-1.5">Passwort</label>
+            <label htmlFor="login-password" className="stat-label block mb-1.5">Passwort</label>
             <input
+              id="login-password"
               type="password"
               className="input-field w-full"
               placeholder="••••••••"

@@ -18,6 +18,15 @@ body {
 ::-webkit-scrollbar-thumb { background: #1C2535; border-radius: 9999px; }
 ::-webkit-scrollbar-thumb:hover { background: #2A3A52; }
 
+/* Reduzierte Bewegung respektieren */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Alle numerischen Werte in Monospace (Telemetrie-Feeling) */
 @supports (font-variant-numeric: tabular-nums) {
   .font-data, .stat-value, [data-numeric] {

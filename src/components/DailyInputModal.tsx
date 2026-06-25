@@ -47,17 +47,27 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
   const alcoholUnits = parseInt(alcohol) || 0
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="daily-input-title"
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+    >
       <div className="card w-full max-w-sm space-y-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-100">Tageseingabe</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-100 text-xl leading-none">✕</button>
+          <h2 id="daily-input-title" className="text-lg font-bold text-slate-100">Tageseingabe</h2>
+          <button
+            onClick={onClose}
+            aria-label="Dialog schließen"
+            className="text-slate-400 hover:text-slate-100 text-xl leading-none"
+          >✕</button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="stat-label block mb-1.5">Körpergewicht (kg)</label>
+            <label htmlFor="input-weight" className="stat-label block mb-1.5">Körpergewicht (kg)</label>
             <input
+              id="input-weight"
               type="number" step="0.1" min="30" max="250"
               className="input-field w-full"
               placeholder="91.0"
@@ -66,8 +76,9 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
             />
           </div>
           <div>
-            <label className="stat-label block mb-1.5">Körperfettanteil (%)</label>
+            <label htmlFor="input-fat" className="stat-label block mb-1.5">Körperfettanteil (%)</label>
             <input
+              id="input-fat"
               type="number" step="0.1" min="3" max="60"
               className="input-field w-full"
               placeholder="18.8"
@@ -76,12 +87,13 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
             />
           </div>
           <div>
-            <label className="stat-label block mb-1.5">
+            <label htmlFor="input-alcohol" className="stat-label block mb-1.5">
               Alkohol (Einheiten gestern)
               <span className="text-slate-500 font-normal ml-1.5">1 Einheit ≈ 0,3L Bier / 0,2L Wein</span>
             </label>
             <div className="flex items-center gap-2">
               <input
+                id="input-alcohol"
                 type="number" step="1" min="0" max="20"
                 className="input-field w-24"
                 value={alcohol}

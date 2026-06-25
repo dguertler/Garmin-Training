@@ -45,8 +45,8 @@ export default function HRVChart({ trend, baselineLow, baselineHigh, lastNight }
           {
             label: 'Readiness',
             data: scores,
-            borderColor: '#22c55e',
-            backgroundColor: 'rgba(34,197,94,0.08)',
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16,185,129,0.08)',
             fill: true,
             tension: 0.4,
             pointRadius: 3,
@@ -72,11 +72,11 @@ export default function HRVChart({ trend, baselineLow, baselineHigh, lastNight }
         maintainAspectRatio: false,
         plugins: {
           tooltip: {
-            backgroundColor: '#1e293b',
-            borderColor: '#334155',
+            backgroundColor: '#0D1117',
+            borderColor: '#1C2535',
             borderWidth: 1,
-            titleColor: '#94a3b8',
-            bodyColor: '#f1f5f9',
+            titleColor: '#4B5A6E',
+            bodyColor: '#C4D0E0',
             callbacks: {
               label: ctx => ` Bereitschaft: ${ctx.raw ?? '–'}/100`,
             },
@@ -85,14 +85,14 @@ export default function HRVChart({ trend, baselineLow, baselineHigh, lastNight }
         },
         scales: {
           x: {
-            grid: { color: 'rgba(51,65,85,0.5)', drawTicks: false },
-            ticks: { color: '#475569', maxTicksLimit: 8, font: { size: 10 } },
+            grid: { color: 'rgba(28,37,53,0.8)', drawTicks: false },
+            ticks: { color: '#4B5A6E', maxTicksLimit: 8, font: { size: 10 } },
           },
           y: {
             min: 0,
             max: 100,
             grid: { color: 'rgba(51,65,85,0.5)' },
-            ticks: { color: '#475569', font: { size: 10 }, stepSize: 25 },
+            ticks: { color: '#4B5A6E', font: { size: 10 }, stepSize: 25 },
           },
         },
         // Schwellen-Annotations ohne Plugin (nur via Datasets)
@@ -120,7 +120,7 @@ export default function HRVChart({ trend, baselineLow, baselineHigh, lastNight }
       </div>
       <div className="h-44">
         {trend.length ? (
-          <canvas ref={canvasRef} />
+          <canvas ref={canvasRef} role="img" aria-label="Trainingsbereitschaft der letzten 30 Tage als Liniendiagramm" />
         ) : (
           <div className="h-full flex items-center justify-center text-slate-500 text-sm">
             Noch keine Verlaufsdaten
