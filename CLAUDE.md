@@ -15,6 +15,10 @@ Immer wenn eine neue HTML-Seite, Next.js-Page oder UI-Komponente erstellt oder g
 
 Diese Reihenfolge ist verbindlich: erst `frontend-design`, dann `web-design-guidelines`.
 
+## Token-Effizienz (Caveman Mode)
+
+Skill `.claude/skills/caveman.md` **immer aktiv** — komprimierte Kommunikation, ~75 % weniger Tokens, volle technische Präzision bleibt erhalten. Nur Füllwörter und Floskeln fallen weg. Deaktivieren mit "stop caveman" / "normal mode".
+
 ## Project Overview
 
 Garmin Training Dashboard — a readiness-driven training and nutrition dashboard for two profiles (Daniel + Frau). Built with Next.js 14 (App Router), PostgreSQL on Railway, and a Python sync-worker that pulls data from Garmin Connect via the `garminconnect` library.
