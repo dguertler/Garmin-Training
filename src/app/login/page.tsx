@@ -32,28 +32,60 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="text-4xl mb-3">🏃</div>
-          <h1 className="text-2xl font-bold text-slate-100">Garmin Dashboard</h1>
-          <p className="text-slate-400 text-sm mt-1">Readiness-gesteuertes Training</p>
+
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-10 gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-signal flex items-center justify-center shadow-lg shadow-signal/20">
+            <span
+              className="text-sm font-bold text-white tracking-tight"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >GT</span>
+          </div>
+          <div className="text-center">
+            <h1
+              className="text-xl font-semibold text-ink"
+              style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.01em' }}
+            >
+              Garmin Training
+            </h1>
+            <p className="text-xs text-fade mt-1 tracking-wide">Readiness-gesteuertes Training</p>
+          </div>
         </div>
+
+        {/* Form */}
         <form onSubmit={handleSubmit} className="card space-y-4">
           <div>
             <label className="stat-label block mb-1.5">E-Mail</label>
-            <input type="email" className="input-field w-full" placeholder="daniel@example.com"
-              value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+            <input
+              type="email"
+              className="input-field w-full"
+              placeholder="name@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
           </div>
           <div>
             <label className="stat-label block mb-1.5">Passwort</label>
-            <input type="password" className="input-field w-full" placeholder="••••••••"
-              value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
+            <input
+              type="password"
+              className="input-field w-full"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
           </div>
-          {error && <p className="text-low text-sm text-center">{error}</p>}
+          {error && (
+            <p className="text-low text-xs text-center">{error}</p>
+          )}
           <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
             {loading ? 'Anmelden…' : 'Anmelden'}
           </button>
           <div className="text-center">
-            <Link href="/forgot-password" className="text-slate-400 text-sm hover:text-slate-200">
+            <Link href="/forgot-password" className="text-xs text-fade hover:text-ink transition-colors">
               Passwort vergessen?
             </Link>
           </div>

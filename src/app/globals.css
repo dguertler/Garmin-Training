@@ -7,14 +7,23 @@
 }
 
 body {
-  @apply bg-surface text-slate-100 antialiased;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  @apply bg-surface antialiased;
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #C4D0E0;
 }
 
-/* Scrollbar dark */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { @apply bg-surface; }
-::-webkit-scrollbar-thumb { @apply bg-surface-border rounded-full; }
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #070A0F; }
+::-webkit-scrollbar-thumb { background: #1C2535; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #2A3A52; }
+
+/* Alle numerischen Werte in Monospace (Telemetrie-Feeling) */
+@supports (font-variant-numeric: tabular-nums) {
+  .font-data, .stat-value, [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+}
 
 @layer components {
   .card {
@@ -23,25 +32,37 @@ body {
   .card-sm {
     @apply bg-surface-card rounded-xl border border-surface-border p-4;
   }
+
   .btn-primary {
-    @apply bg-prime text-white font-semibold px-5 py-2.5 rounded-xl
-           hover:bg-prime-dark active:scale-95 transition-all duration-150;
+    @apply bg-signal text-white font-semibold px-5 py-2.5 rounded-xl
+           hover:bg-signal-dark active:scale-95 transition-all duration-150;
   }
   .btn-ghost {
-    @apply text-slate-400 hover:text-slate-100 font-medium px-4 py-2 rounded-xl
+    @apply text-fade hover:text-ink font-medium px-4 py-2 rounded-xl
            hover:bg-white/5 transition-all duration-150;
   }
-  .badge-prime    { @apply bg-prime/20    text-prime    text-xs font-semibold px-2.5 py-1 rounded-full; }
-  .badge-moderate { @apply bg-moderate/20 text-moderate text-xs font-semibold px-2.5 py-1 rounded-full; }
-  .badge-low      { @apply bg-low/20      text-low      text-xs font-semibold px-2.5 py-1 rounded-full; }
-  .badge-gray     { @apply bg-white/10    text-slate-400 text-xs font-semibold px-2.5 py-1 rounded-full; }
+
+  .badge-prime    { @apply bg-prime/15    text-prime    text-xs font-semibold px-2.5 py-1 rounded-full; }
+  .badge-moderate { @apply bg-moderate/15 text-moderate text-xs font-semibold px-2.5 py-1 rounded-full; }
+  .badge-low      { @apply bg-low/15      text-low      text-xs font-semibold px-2.5 py-1 rounded-full; }
+  .badge-gray     { @apply bg-white/10    text-fade     text-xs font-semibold px-2.5 py-1 rounded-full; }
 
   .input-field {
-    @apply bg-white/5 border border-surface-border rounded-xl px-4 py-2.5
-           text-slate-100 placeholder-slate-500 focus:outline-none
-           focus:border-prime focus:ring-1 focus:ring-prime/50 transition-all;
+    @apply bg-surface-lift border border-surface-border rounded-xl px-4 py-2.5
+           text-ink placeholder-fade focus:outline-none
+           focus:border-signal focus:ring-1 focus:ring-signal/30 transition-all;
   }
 
-  .stat-label { @apply text-xs text-slate-500 uppercase tracking-wider font-medium; }
-  .stat-value { @apply text-2xl font-bold text-slate-100; }
+  /* stat-label: kategorie-beschriftungen */
+  .stat-label {
+    @apply text-xs text-fade uppercase tracking-widest font-medium;
+    font-family: var(--font-body), sans-serif;
+  }
+
+  /* stat-value: numerische Anzeigewerte in Monospace */
+  .stat-value {
+    @apply text-2xl font-medium text-ink;
+    font-family: var(--font-data), monospace;
+    font-variant-numeric: tabular-nums;
+  }
 }
