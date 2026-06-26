@@ -5,7 +5,10 @@ import MealPlan from '@/components/MealPlan'
 import DailyInputModal from '@/components/DailyInputModal'
 import WeightChart from '@/components/WeightChart'
 import CarbCycleCalendar from '@/components/CarbCycleCalendar'
+import TrainingScheduleEditor from '@/components/TrainingScheduleEditor'
+import { PhaseAdvisorDetail } from '@/components/PhaseAdvisor'
 import { calcWeightTrend } from '@/lib/nutrition'
+import { getPhasePreset } from '@/lib/phases'
 
 interface NutritionData {
   today: {
@@ -21,6 +24,8 @@ interface NutritionData {
     tdee_kcal: number
     is_training_day: boolean
     is_refeed_day: boolean
+    training_time: string | null
+    workout_type: string | null
   } | null
   history: Array<{
     entry_date: string
@@ -28,6 +33,7 @@ interface NutritionData {
     body_fat_pct: number
     lean_mass_kg: number
   }>
+  profile?: { current_phase: string; phase_preset: string | null } | null
 }
 
 export default function NutritionPage() {
@@ -76,6 +82,12 @@ export default function NutritionPage() {
   )
 
   const t = data?.today
+  const activePreset = data?.profile
+    ? getPhasePreset(
+        data.profile.phase_preset,
+        (data.profile.current_phase ?? 'cut') as 'cut' | 'bulk' | 'maintenance' | 'baseline_building',
+      )
+    : null
   // meal_plan kann als Array (JSONB) oder String (TEXT) aus der DB kommen
   const mealPlanData = Array.isArray(t?.meal_plan)
     ? (t.meal_plan as Parameters<typeof MealPlan>[0]['meals'])
@@ -138,11 +150,27 @@ export default function NutritionPage() {
         </div>
       )}
 
+      {/* Aktive Phase – Ratgeber-Kurzfassung */}
+      {activePreset && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-slate-200">Aktive Phase</h2>
+            <Link href="/settings" className="text-xs text-slate-400 hover:text-slate-200">Phase ändern →</Link>
+          </div>
+          <PhaseAdvisorDetail preset={activePreset} />
+        </div>
+      )}
+
       {/* Mahlzeitenplan */}
       <MealPlan
         meals={mealPlanData}
         isTrainingDay={t?.is_training_day ?? false}
+        trainingTime={t?.training_time ?? null}
+        workoutType={t?.workout_type ?? null}
       />
+
+      {/* Trainingskalender – Zeiten setzen, Mahlzeiten passen sich an */}
+      <TrainingScheduleEditor onSaved={load} />
 
       {/* Gewichtsverlauf-Chart */}
       {historyAsc.length ? (

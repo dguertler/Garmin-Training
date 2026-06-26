@@ -1,10 +1,13 @@
-export type Phase = 'cut' | 'bulk' | 'maintenance'
+import { getPhasePreset, type Phase } from './phases'
+export type { Phase } from './phases'
 
 export interface DailyNutritionInput {
   weightKg: number
   bodyFatPct: number
   activeCaloriesGarmin: number  // aus Garmin, wird korrigiert
   phase: Phase
+  /** Preset-Key (z.B. 'cut_aggressive'). Steuert Kaloriendelta + Protein/Fett-Floor. */
+  phasePreset?: string | null
   isTrainingDay: boolean
   isRefeedDay: boolean
   tdeeAdjustmentKcal?: number   // aus Selbstkalibrierung
@@ -54,28 +57,22 @@ export function calcMacros(input: DailyNutritionInput): MacroTargets {
   const bmrKcal = Math.round(370 + 21.6 * leanMassKg)
 
   const correctedActive = correctActiveCalories(input.activeCaloriesGarmin, input.isTrainingDay)
-  let tdeeKcal = bmrKcal + correctedActive + (input.tdeeAdjustmentKcal ?? 0)
+  const tdeeKcal = bmrKcal + correctedActive + (input.tdeeAdjustmentKcal ?? 0)
 
-  // Zielkalorien nach Phase
-  let caloriesTarget: number
-  switch (input.phase) {
-    case 'cut':
-      caloriesTarget = Math.round(tdeeKcal * 0.80)  // −20%
-      break
-    case 'bulk':
-      caloriesTarget = Math.round(tdeeKcal + 400)    // +300-500 kcal Mitte
-      break
-    case 'maintenance':
-      caloriesTarget = Math.round(tdeeKcal)
-      break
-  }
+  // Preset bestimmt absolutes Kaloriendelta + Protein/Fett-Floor
+  const preset = getPhasePreset(input.phasePreset, input.phase)
 
-  // Protein: 2,3 g/kg Körpergewicht (konstant, alle Tage)
-  const proteinG = Math.round(2.3 * input.weightKg)
+  // Zielkalorien = TDEE + Delta, nie unter Grundumsatz (Hormon-/Muskelschutz)
+  let caloriesTarget = Math.round(tdeeKcal + preset.deltaKcal)
+  caloriesTarget = Math.max(caloriesTarget, bmrKcal)
+
+  // Protein: aus Preset (g/kg Körpergewicht) – höher bei aggressivem Defizit
+  const proteinG = Math.round(preset.proteinPerKg * input.weightKg)
   const proteinKcal = proteinG * 4
 
-  // Fett: 22% der Gesamtkalorien (Mitte 20-25%)
-  let fatG = Math.round((caloriesTarget * 0.22) / 9)
+  // Fett: 22% der Gesamtkalorien, aber mindestens Preset-Floor (Hormon-Schutz)
+  const fatFloorG = Math.round(preset.minFatPerKg * input.weightKg)
+  let fatG = Math.max(Math.round((caloriesTarget * 0.22) / 9), fatFloorG)
   const fatKcal = fatG * 9
 
   // Carb-Cycling anwenden
@@ -102,40 +99,110 @@ export function calcMacros(input: DailyNutritionInput): MacroTargets {
   }
 }
 
-// Mahlzeitenplan generieren (Training abends nach 18:00)
-export function generateMealPlan(macros: MacroTargets, isTrainingDay: boolean): MealPlanEntry[] {
-  const { caloriesTarget, proteinG, carbsG, fatG } = macros
+// ---- Zeit-Helfer -------------------------------------------------------------
+function toMin(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+function toHHMM(min: number): string {
+  const clamped = ((Math.round(min) % 1440) + 1440) % 1440
+  const h = Math.floor(clamped / 60)
+  const m = clamped % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
 
-  if (isTrainingDay) {
-    // Verteilung: 500 / 535 / 400 / 640 / 440 ≈ Spezifikation, skaliert auf Zielkalorien
-    const scale = caloriesTarget / 2515  // Basis 2515 kcal aus Spezifikation
+export interface MealPlanOptions {
+  isTrainingDay: boolean
+  /** geplante Trainingszeit 'HH:MM' – verschiebt Pre-/Post-Workout-Mahlzeiten */
+  trainingTime?: string | null
+  /** Aufstehzeit 'HH:MM', Default 07:00 */
+  wakeTime?: string
+}
+
+/**
+ * Verteilt die fünf Mahlzeiten zeitlich. An Trainingstagen mit gesetzter
+ * Trainingszeit werden Pre-/Post-Workout-Mahlzeit um die Einheit gelegt:
+ *  - Pre-Workout ~75 min davor: schnelle Carbs, kein Fett (Verdauung).
+ *  - Post-Workout ~60 min danach: größter Carb-Block (Glykogen) + Protein.
+ * Ohne Trainingszeit gilt die bewährte Standardverteilung.
+ */
+function mealTimes(opts: MealPlanOptions): Record<MealPlanEntry['slot'], string> {
+  const wake = toMin(opts.wakeTime ?? '07:00')
+  const bedish = wake + 15.5 * 60  // ~22:30 bei 07:00
+
+  if (opts.isTrainingDay && opts.trainingTime) {
+    const train = toMin(opts.trainingTime)
+    let pre = train - 75
+    let post = train + 60
+    // Pre-Workout nicht vor dem Aufstehen
+    pre = Math.max(pre, wake + 30)
+    const breakfast = wake
+    // Mittagessen zwischen Frühstück und Pre-Workout platzieren
+    let lunch = Math.round((breakfast + pre) / 2)
+    lunch = Math.min(Math.max(lunch, breakfast + 180), pre - 90)
+    if (lunch <= breakfast + 60) lunch = breakfast + 210  // Fallback bei frühem Training
+    const preSleep = Math.max(post + 120, bedish, wake + 14 * 60)
+    return {
+      breakfast: toHHMM(breakfast),
+      lunch: toHHMM(lunch),
+      pre_workout: toHHMM(pre),
+      dinner: toHHMM(post),
+      pre_sleep: toHHMM(preSleep),
+    }
+  }
+
+  // Standard (kein Training oder keine Zeit gesetzt)
+  return {
+    breakfast: toHHMM(wake),
+    lunch: toHHMM(wake + 5 * 60),
+    pre_workout: toHHMM(wake + 9 * 60),
+    dinner: toHHMM(wake + 12.5 * 60),
+    pre_sleep: toHHMM(bedish),
+  }
+}
+
+/**
+ * Mahlzeitenplan generieren. Zweite Signatur akzeptiert entweder ein
+ * Options-Objekt (mit Trainingszeit) oder – abwärtskompatibel – ein boolean.
+ */
+export function generateMealPlan(
+  macros: MacroTargets,
+  optsOrTraining: MealPlanOptions | boolean,
+): MealPlanEntry[] {
+  const opts: MealPlanOptions =
+    typeof optsOrTraining === 'boolean' ? { isTrainingDay: optsOrTraining } : optsOrTraining
+  const { caloriesTarget, proteinG, carbsG, fatG } = macros
+  const times = mealTimes(opts)
+
+  if (opts.isTrainingDay) {
+    const scale = caloriesTarget / 2515
     return [
       {
-        mealNumber: 1, timeLabel: '07:00', slot: 'breakfast',
+        mealNumber: 1, timeLabel: times.breakfast, slot: 'breakfast',
         kcal: Math.round(500 * scale), proteinG: Math.round(proteinG * 0.213),
         carbsG: Math.round(carbsG * 0.165), fatG: Math.round(fatG * 0.25),
         name: 'Frühstück',
       },
       {
-        mealNumber: 2, timeLabel: '12:30', slot: 'lunch',
+        mealNumber: 2, timeLabel: times.lunch, slot: 'lunch',
         kcal: Math.round(535 * scale), proteinG: Math.round(proteinG * 0.214),
         carbsG: Math.round(carbsG * 0.196), fatG: Math.round(fatG * 0.25),
         name: 'Mittagessen',
       },
       {
-        mealNumber: 3, timeLabel: '16:30', slot: 'pre_workout',
+        mealNumber: 3, timeLabel: times.pre_workout, slot: 'pre_workout',
         kcal: Math.round(400 * scale), proteinG: Math.round(proteinG * 0.167),
         carbsG: Math.round(carbsG * 0.239), fatG: Math.round(fatG * 0.056),
-        name: 'Pre-Workout', notes: 'Kein Fett – verlangsamt Verdauung',
+        name: 'Pre-Workout', notes: 'Schnelle Carbs, kein Fett – verlangsamt Verdauung',
       },
       {
-        mealNumber: 4, timeLabel: '20:30', slot: 'dinner',
+        mealNumber: 4, timeLabel: times.dinner, slot: 'dinner',
         kcal: Math.round(640 * scale), proteinG: Math.round(proteinG * 0.238),
         carbsG: Math.round(carbsG * 0.326), fatG: Math.round(fatG * 0.194),
         name: 'Post-Workout / Abendessen', notes: 'Größter Carb-Block – Glykogen-Resynthese',
       },
       {
-        mealNumber: 5, timeLabel: '22:30', slot: 'pre_sleep',
+        mealNumber: 5, timeLabel: times.pre_sleep, slot: 'pre_sleep',
         kcal: Math.round(440 * scale), proteinG: Math.round(proteinG * 0.167),
         carbsG: Math.round(carbsG * 0.074), fatG: Math.round(fatG * 0.25),
         name: 'Pre-Sleep', notes: 'Casein-Protein – +22% nächtliche Muskelproteinsynthese',
@@ -147,31 +214,31 @@ export function generateMealPlan(macros: MacroTargets, isTrainingDay: boolean): 
   const scale = caloriesTarget / 2120
   return [
     {
-      mealNumber: 1, timeLabel: '07:00', slot: 'breakfast',
+      mealNumber: 1, timeLabel: times.breakfast, slot: 'breakfast',
       kcal: Math.round(480 * scale), proteinG: Math.round(proteinG * 0.213),
       carbsG: Math.round(carbsG * 0.208), fatG: Math.round(fatG * 0.224),
       name: 'Frühstück',
     },
     {
-      mealNumber: 2, timeLabel: '12:00', slot: 'lunch',
+      mealNumber: 2, timeLabel: times.lunch, slot: 'lunch',
       kcal: Math.round(490 * scale), proteinG: Math.round(proteinG * 0.213),
       carbsG: Math.round(carbsG * 0.25), fatG: Math.round(fatG * 0.204),
       name: 'Mittagessen',
     },
     {
-      mealNumber: 3, timeLabel: '16:00', slot: 'pre_workout',
+      mealNumber: 3, timeLabel: times.pre_workout, slot: 'pre_workout',
       kcal: Math.round(380 * scale), proteinG: Math.round(proteinG * 0.189),
       carbsG: Math.round(carbsG * 0.208), fatG: Math.round(fatG * 0.163),
       name: 'Nachmittags-Snack',
     },
     {
-      mealNumber: 4, timeLabel: '19:30', slot: 'dinner',
+      mealNumber: 4, timeLabel: times.dinner, slot: 'dinner',
       kcal: Math.round(520 * scale), proteinG: Math.round(proteinG * 0.213),
       carbsG: Math.round(carbsG * 0.317), fatG: Math.round(fatG * 0.184),
       name: 'Abendessen',
     },
     {
-      mealNumber: 5, timeLabel: '22:30', slot: 'pre_sleep',
+      mealNumber: 5, timeLabel: times.pre_sleep, slot: 'pre_sleep',
       kcal: Math.round(250 * scale), proteinG: Math.round(proteinG * 0.165),
       carbsG: Math.round(carbsG * 0.058), fatG: Math.round(fatG * 0.092),
       name: 'Pre-Sleep', notes: 'Casein-Protein für nächtliche MPS',

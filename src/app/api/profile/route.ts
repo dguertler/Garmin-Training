@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { query, queryOne } from '@/lib/db'
+import { getPhasePreset } from '@/lib/phases'
+import { recomputeDailyTargets } from '@/lib/nutritionEngine'
 
 
 export async function GET() {
@@ -41,8 +43,16 @@ export async function PATCH(req: NextRequest) {
   if (!userId)  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
+
+  // Preset gewählt → Basis-Phase daraus ableiten und mitschreiben
+  if ('phase_preset' in body && body.phase_preset) {
+    const preset = getPhasePreset(body.phase_preset)
+    body.phase_preset = preset.key
+    body.current_phase = preset.phase
+  }
+
   const allowed = [
-    'current_phase', 'phase_start_date', 'bulk_start_date',
+    'current_phase', 'phase_preset', 'phase_start_date', 'bulk_start_date',
     'daily_steps_goal', 'lthr', 'sex',
   ]
 
@@ -78,6 +88,12 @@ export async function PATCH(req: NextRequest) {
 
   updates.push('updated_at = NOW()')
   await query(`UPDATE user_profiles SET ${updates.join(', ')} WHERE user_id = $1`, vals)
+
+  // Phasenwechsel → heutige Ziele/Makros sofort neu berechnen
+  if ('phase_preset' in body || 'current_phase' in body) {
+    const today = new Date().toISOString().split('T')[0]
+    await recomputeDailyTargets(userId, today)
+  }
 
   return NextResponse.json({ ok: true })
 }

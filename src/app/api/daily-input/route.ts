@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { query, queryOne } from '@/lib/db'
-import { calcMacros, generateMealPlan, type Phase } from '@/lib/nutrition'
+import { recomputeDailyTargets } from '@/lib/nutritionEngine'
 
 
 export async function POST(req: NextRequest) {
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (!userId)  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { weight_kg, body_fat_pct, entry_date, alcohol_units } = body
+  const { weight_kg, body_fat_pct, entry_date, alcohol_units, training_time, workout_type } = body
 
   if (!weight_kg || !body_fat_pct) {
     return NextResponse.json({ error: 'weight_kg und body_fat_pct erforderlich' }, { status: 400 })
@@ -23,13 +23,15 @@ export async function POST(req: NextRequest) {
 
   const date = entry_date ?? new Date().toISOString().split('T')[0]
 
-  // Tageseingabe speichern
+  // Tageseingabe speichern (training_time/workout_type optional als Tages-Override)
   await query(
-    `INSERT INTO daily_input (user_id, entry_date, weight_kg, body_fat_pct, alcohol_units)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO daily_input (user_id, entry_date, weight_kg, body_fat_pct, alcohol_units, training_time, workout_type)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (user_id, entry_date) DO UPDATE
-       SET weight_kg = $3, body_fat_pct = $4, alcohol_units = $5`,
-    [userId, date, weight_kg, body_fat_pct, alcohol_units ?? 0]
+       SET weight_kg = $3, body_fat_pct = $4, alcohol_units = $5,
+           training_time = COALESCE($6, daily_input.training_time),
+           workout_type  = COALESCE($7, daily_input.workout_type)`,
+    [userId, date, weight_kg, body_fat_pct, alcohol_units ?? 0, training_time ?? null, workout_type ?? null]
   )
 
   // Profil aktualisieren
@@ -39,64 +41,10 @@ export async function POST(req: NextRequest) {
     [userId, weight_kg, body_fat_pct]
   )
 
-  // Makros berechnen
-  const profile = await queryOne<{
-    current_phase: Phase
-    tdee_kcal_current: number | null
-    tdee_calibration_offset: number | null
-  }>(
-    'SELECT current_phase, tdee_kcal_current FROM user_profiles WHERE user_id = $1',
-    [userId]
-  )
+  // Ziele + Mahlzeitenplan (zeit-/preset-abhängig) berechnen
+  await recomputeDailyTargets(userId, date)
 
-  const garmin = await queryOne<{ calories_active: number | null }>(
-    `SELECT calories_active FROM garmin_raw_metrics
-     WHERE user_id = $1 AND metric_date = $2`,
-    [userId, date]
-  )
-
-  // Wochentag → Trainingstag nach Skeleton
-  const dow = new Date(date).getDay()
-  const isTrainingDay = [1, 2, 3, 5, 6].includes(dow) // Mo,Di,Mi,Fr,Sa
-  // Push (Mo) + Legs (Fr) = Refeed-Kandidaten
-  const isRefeedDay = [1, 5].includes(dow)
-
-  const macros = calcMacros({
-    weightKg: weight_kg,
-    bodyFatPct: body_fat_pct,
-    activeCaloriesGarmin: garmin?.calories_active ?? 400,
-    phase: profile?.current_phase ?? 'cut',
-    isTrainingDay,
-    isRefeedDay,
-    tdeeAdjustmentKcal: 0,
-  })
-
-  const mealPlan = generateMealPlan(macros, isTrainingDay)
-
-  // Nutrition targets upsert
-  await query(
-    `INSERT INTO nutrition_targets
-       (user_id, target_date, weight_kg, lean_mass_kg, bmr_kcal,
-        active_calories, tdee_kcal, phase, is_training_day, is_refeed_day,
-        calories_target, protein_target_g, carbs_target_g, fat_target_g, meal_plan)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-     ON CONFLICT (user_id, target_date) DO UPDATE SET
-       weight_kg = $3, lean_mass_kg = $4, bmr_kcal = $5,
-       active_calories = $6, tdee_kcal = $7,
-       calories_target = $11, protein_target_g = $12,
-       carbs_target_g = $13, fat_target_g = $14,
-       meal_plan = $15, updated_at = NOW()`,
-    [
-      userId, date,
-      weight_kg, macros.leanMassKg, macros.bmrKcal,
-      garmin?.calories_active ?? 400, macros.tdeeKcal,
-      profile?.current_phase ?? 'cut', isTrainingDay, isRefeedDay,
-      macros.caloriesTarget, macros.proteinG, macros.carbsG, macros.fatG,
-      JSON.stringify(mealPlan),
-    ]
-  )
-
-  return NextResponse.json({ ok: true, macros, mealPlan, date })
+  return NextResponse.json({ ok: true, date })
 }
 
 export async function GET(req: NextRequest) {
@@ -107,12 +55,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const date = searchParams.get('date') ?? new Date().toISOString().split('T')[0]
 
-  const [today, history] = await Promise.all([
+  const [today, history, profile] = await Promise.all([
     queryOne(
       `SELECT di.entry_date, di.weight_kg, di.body_fat_pct, di.lean_mass_kg, di.bmr_kcal,
               di.notes, di.alcohol_units,
               nt.calories_target, nt.protein_target_g, nt.carbs_target_g,
-              nt.fat_target_g, nt.meal_plan, nt.tdee_kcal, nt.is_training_day, nt.is_refeed_day
+              nt.fat_target_g, nt.meal_plan, nt.tdee_kcal, nt.is_training_day, nt.is_refeed_day,
+              nt.training_time::text AS training_time, nt.workout_type
        FROM daily_input di
        LEFT JOIN nutrition_targets nt ON nt.user_id = di.user_id AND nt.target_date = di.entry_date
        WHERE di.user_id = $1 AND di.entry_date = $2`,
@@ -124,7 +73,11 @@ export async function GET(req: NextRequest) {
        ORDER BY entry_date DESC LIMIT 30`,
       [userId]
     ),
+    queryOne(
+      `SELECT current_phase, phase_preset FROM user_profiles WHERE user_id = $1`,
+      [userId]
+    ),
   ])
 
-  return NextResponse.json({ today, history })
+  return NextResponse.json({ today, history, profile })
 }

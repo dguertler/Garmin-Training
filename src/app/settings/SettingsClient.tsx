@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useEffect, useRef, useState, useCallback } from 'react'
+import PhaseAdvisor from '@/components/PhaseAdvisor'
 
 interface Profile {
   current_phase: string
@@ -257,7 +258,8 @@ export default function SettingsClient() {
   async function handleSave() {
     setSaving(true)
     setSaved(false)
-    const payload: Record<string, unknown> = { current_phase: form.current_phase, sex: form.sex }
+    // Phase wird vom PhaseAdvisor separat gespeichert – hier nur restliche Felder
+    const payload: Record<string, unknown> = { sex: form.sex }
     if (form.lthr) payload.lthr = Number(form.lthr)
     if (form.daily_steps_goal) payload.daily_steps_goal = Number(form.daily_steps_goal)
 
@@ -292,42 +294,13 @@ export default function SettingsClient() {
         </div>
       )}
 
-      {/* Trainingsphase */}
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-slate-200">Trainingsphase</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[
-            { key: 'cut', label: 'Schnitt', desc: '−20% TDEE' },
-            { key: 'maintenance', label: 'Erhalt', desc: '±0 kcal' },
-            { key: 'bulk', label: 'Aufbau', desc: '+10% TDEE' },
-            { key: 'baseline_building', label: 'Baseline', desc: 'Zone-2-Fokus' },
-          ].map(phase => (
-            <button
-              key={phase.key}
-              onClick={() => setForm(f => ({ ...f, current_phase: phase.key }))}
-              className={`p-3 rounded-xl border transition-all text-left ${
-                form.current_phase === phase.key
-                  ? 'border-prime bg-prime/10'
-                  : 'border-white/10 hover:border-white/20'
-              }`}
-            >
-              <div className="font-medium text-slate-200 text-sm">{phase.label}</div>
-              <div className="text-xs text-slate-400 mt-0.5">{phase.desc}</div>
-            </button>
-          ))}
-        </div>
-        {form.current_phase === 'baseline_building' && (
-          <p className="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-            Baseline Building: Zone-2-Wochenplan (Mo/Mi/Fr Zone 2, Di/Do/Sa Mobilität). Kein Deload-Trigger – aerobe Basis aufbauen.
-          </p>
-        )}
-        {p && (
-          <p className="text-xs text-slate-500">
-            Aktuelle Phase: <span className="text-slate-300">{p.current_phase}</span>
-            {p.weeks_since_deload > 0 && ` · ${p.weeks_since_deload} Wochen seit letztem Deload`}
-          </p>
-        )}
-      </div>
+      {/* Trainingsphase + Ratgeber (speichert eigenständig) */}
+      <PhaseAdvisor />
+      {p && p.weeks_since_deload > 0 && (
+        <p className="text-xs text-slate-500 px-1 -mt-3">
+          {p.weeks_since_deload} Wochen seit letztem Deload
+        </p>
+      )}
 
       {/* LTHR + HR-Zonen */}
       <div className="card space-y-4">

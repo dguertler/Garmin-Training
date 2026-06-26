@@ -234,6 +234,10 @@ CREATE TABLE daily_input (
     bmr_kcal        NUMERIC(7,2) GENERATED ALWAYS AS
                         (370 + 21.6 * weight_kg * (1 - body_fat_pct / 100)) STORED,
 
+    -- Trainingszeit-Override für diesen Tag (sonst gilt der Wochenplan)
+    training_time   TIME,
+    workout_type    TEXT,
+
     notes           TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -278,6 +282,10 @@ CREATE TABLE nutrition_targets (
 
     -- Mahlzeitenplan (5 Mahlzeiten)
     meal_plan           JSONB,  -- [{meal_number, time, kcal, protein_g, carbs_g, fat_g, name, examples}, ...]
+
+    -- Effektive Trainingszeit, mit der der Plan berechnet wurde
+    training_time       TIME,
+    workout_type        TEXT,
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -731,8 +739,13 @@ CREATE TABLE user_profiles (
     body_fat_pct    NUMERIC(5,2),
 
     -- Training
-    -- 'cut' | 'bulk' | 'maintenance'
+    -- 'cut' | 'bulk' | 'maintenance' | 'baseline_building'
     current_phase   TEXT NOT NULL DEFAULT 'cut',
+    -- Feineres Preset: cut_aggressive | cut_moderate | cut_lean | maintenance |
+    -- lean_bulk | bulk_moderate | baseline_building
+    phase_preset    TEXT DEFAULT NULL,
+    -- Wöchentlicher Default-Trainingsplan { "1": {"time":"18:00","type":"strength"}, ... }
+    weekly_training_schedule JSONB DEFAULT NULL,
     phase_start_date DATE,
     bulk_start_date  DATE,  -- geplanter Phasenwechsel
 
