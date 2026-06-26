@@ -21,6 +21,8 @@ const WORKOUT_TYPES = [
 ]
 
 export default function DailyInputModal({ initial, onSave, onClose }: Props) {
+  const todayStr = new Date().toISOString().split('T')[0]
+  const [entryDate, setEntryDate] = useState(todayStr)
   const [weight, setWeight] = useState(String(initial?.weight_kg ?? ''))
   const [fat, setFat] = useState(String(initial?.body_fat_pct ?? ''))
   const [alcohol, setAlcohol] = useState(String(initial?.alcohol_units ?? '0'))
@@ -44,6 +46,7 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           weight_kg: w, body_fat_pct: f, alcohol_units: a,
+          entry_date: entryDate,
           training_time: trainingTime || null,
           workout_type: workoutType || null,
         }),
@@ -83,6 +86,20 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
         </div>
 
         <div className="space-y-4">
+          <div>
+            <label htmlFor="input-date" className="stat-label block mb-1.5">
+              Datum
+              {entryDate !== todayStr && <span className="text-amber-400 font-normal ml-1.5">Nachtrag für ein vergangenes Datum</span>}
+            </label>
+            <input
+              id="input-date"
+              type="date"
+              max={todayStr}
+              className="input-field w-full"
+              value={entryDate}
+              onChange={e => setEntryDate(e.target.value)}
+            />
+          </div>
           <div>
             <label htmlFor="input-weight" className="stat-label block mb-1.5">Körpergewicht (kg)</label>
             <input

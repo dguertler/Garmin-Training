@@ -63,6 +63,10 @@ export default function NutritionLogPage() {
   const [data, setData] = useState<DayLog | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const [quickKcal, setQuickKcal] = useState('')
+  const [quickProtein, setQuickProtein] = useState('')
+  const [quickSaving, setQuickSaving] = useState(false)
+
   const load = useCallback(async (d: string) => {
     setLoading(true)
     try {
@@ -74,6 +78,32 @@ export default function NutritionLogPage() {
   }, [])
 
   useEffect(() => { load(date) }, [date, load])
+
+  async function saveQuickTotal() {
+    const kcal = parseInt(quickKcal)
+    if (isNaN(kcal) || kcal <= 0) return
+    setQuickSaving(true)
+    try {
+      await fetch('/api/meals/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          log_date: date,
+          meal_slot: 'other',
+          name: 'Tagessumme (nachgetragen)',
+          calories: kcal,
+          protein_g: parseInt(quickProtein) || 0,
+          carbs_g: 0,
+          fat_g: 0,
+        }),
+      })
+      setQuickKcal('')
+      setQuickProtein('')
+      load(date)
+    } finally {
+      setQuickSaving(false)
+    }
+  }
 
   const isToday = date === today
   const totals = data?.totals ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
@@ -101,8 +131,16 @@ export default function NutritionLogPage() {
         </button>
         <div className="text-center">
           <div className="font-semibold text-slate-200">{fmtDate(date)}</div>
+          <input
+            type="date"
+            max={today}
+            value={date}
+            onChange={e => e.target.value && setDate(e.target.value)}
+            aria-label="Datum wählen"
+            className="mt-1 bg-transparent text-xs text-slate-400 text-center focus:text-slate-200 focus:outline-none"
+          />
           {!isToday && (
-            <button onClick={() => setDate(today)} className="text-xs text-prime hover:underline mt-0.5">
+            <button onClick={() => setDate(today)} className="block mx-auto text-xs text-prime hover:underline">
               Heute
             </button>
           )}
@@ -191,6 +229,41 @@ export default function NutritionLogPage() {
             <Link href="/nutrition" className="text-prime hover:underline">Gewicht eingeben</Link>
           </p>
         )}
+      </div>
+
+      {/* Schnell-Eintrag: Tagessumme nachtragen (für historische Tage / Kalibrierung) */}
+      <div className="card space-y-2">
+        <div className="text-sm font-semibold text-slate-200">Tagessumme nachtragen</div>
+        <p className="text-xs text-slate-400">
+          Nur Gesamtkalorien für {fmtDate(date)} eintragen — fließt direkt in die TDEE-Kalibrierung ein.
+        </p>
+        <div className="flex items-end gap-2">
+          <label className="flex-1">
+            <span className="text-xs text-slate-500 block mb-1">Kalorien</span>
+            <input
+              type="number" inputMode="numeric" min="0" placeholder="z.B. 2300"
+              className="input-field w-full"
+              value={quickKcal}
+              onChange={e => setQuickKcal(e.target.value)}
+            />
+          </label>
+          <label className="w-24">
+            <span className="text-xs text-slate-500 block mb-1">Protein (g)</span>
+            <input
+              type="number" inputMode="numeric" min="0" placeholder="opt."
+              className="input-field w-full"
+              value={quickProtein}
+              onChange={e => setQuickProtein(e.target.value)}
+            />
+          </label>
+          <button
+            onClick={saveQuickTotal}
+            disabled={quickSaving || !quickKcal}
+            className="btn-primary px-4 disabled:opacity-40"
+          >
+            {quickSaving ? '…' : '+'}
+          </button>
+        </div>
       </div>
 
       {/* Mahlzeit-Slots */}

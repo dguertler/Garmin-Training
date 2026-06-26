@@ -14,6 +14,7 @@ import logging
 import os
 import sys
 
+import requests
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
@@ -24,6 +25,12 @@ from sync_weekly import sync_user_weekly
 from web_server import start_web_server
 
 load_dotenv()
+
+# Web-Service für die nachgelagerte TDEE-Kalibrierung + Zielberechnung
+WEB_BASE_URL = os.environ.get(
+    "WEB_BASE_URL", "https://garmin-training-production.up.railway.app"
+).rstrip("/")
+SYNC_INTERNAL_KEY = os.environ.get("SYNC_INTERNAL_KEY", "")
 
 logging.basicConfig(
 
@@ -50,6 +57,30 @@ def get_all_users() -> list[dict]:
     return [{"id": str(r[0]), "email": r[1], "garmin_username": r[2]} for r in rows]
 
 
+def trigger_web_recompute():
+    """Nach dem Sync: TDEE-Kalibrierung + Tagesziele im Web-Service neu rechnen.
+
+    Single Source of Truth ist die TS-Logik – der Worker stößt sie nur an,
+    damit Auto-Kalibrierung auch ohne App-Nutzung läuft (Garmin-Waage → daily_input).
+    """
+    try:
+        resp = requests.post(
+            f"{WEB_BASE_URL}/api/internal/recompute",
+            headers={
+                "X-Internal-Key": SYNC_INTERNAL_KEY,
+                "Content-Type": "application/json",
+            },
+            json={},
+            timeout=120,
+        )
+        if resp.status_code == 200:
+            logger.info("Recompute/Kalibrierung OK: %s", resp.json().get("count"))
+        else:
+            logger.warning("Recompute-Trigger HTTP %s: %s", resp.status_code, resp.text[:200])
+    except Exception as e:
+        logger.error("Recompute-Trigger fehlgeschlagen: %s", e)
+
+
 def run_daily_sync():
     logger.info("=== Täglicher Sync startet ===")
     users = get_all_users()
@@ -68,6 +99,9 @@ def run_daily_sync():
                 "Sync abgeschlossen: %d Endpunkte, %d Fehler",
                 len(result.get("endpoints", {})), len(errors)
             )
+
+    # Nachgelagert: adaptive TDEE-Kalibrierung + Zielberechnung im Web-Service
+    trigger_web_recompute()
 
 
 def run_weekly_sync():

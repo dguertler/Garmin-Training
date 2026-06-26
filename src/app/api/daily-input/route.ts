@@ -35,12 +35,16 @@ export async function POST(req: NextRequest) {
     [userId, date, weight_kg, body_fat_pct, alcohol_units ?? 0, training_time ?? null, workout_type ?? null]
   )
 
-  // Profil aktualisieren
-  await query(
-    `UPDATE user_profiles SET weight_kg = $2, body_fat_pct = $3, updated_at = NOW()
-     WHERE user_id = $1`,
-    [userId, weight_kg, body_fat_pct]
-  )
+  // Profil-Gewicht nur bei heutigem Eintrag aktualisieren – ein Nachtrag für ein
+  // vergangenes Datum darf das aktuelle Gewicht nicht überschreiben.
+  const todayStr = new Date().toISOString().split('T')[0]
+  if (date === todayStr) {
+    await query(
+      `UPDATE user_profiles SET weight_kg = $2, body_fat_pct = $3, updated_at = NOW()
+       WHERE user_id = $1`,
+      [userId, weight_kg, body_fat_pct]
+    )
+  }
 
   // Rollende Auto-Kalibrierung (max. 1×/Woche) – passt tdee_kcal_current an,
   // bevor die Tagesziele daraus berechnet werden.
