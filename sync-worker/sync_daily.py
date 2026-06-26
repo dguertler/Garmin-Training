@@ -5,7 +5,7 @@ Wird vom Scheduler (main.py) aufgerufen.
 import json
 import logging
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import psycopg2
 import psycopg2.extras
@@ -101,6 +101,16 @@ def sync_user_daily(user_id: str, garmin_email: str, garmin_password: str | None
 
     parsed = _parse_daily(data, today)
     _upsert_raw_metrics(user_id, today, parsed)
+
+    # ── Vortage finalisieren ───────────────────────────────────────────────
+    # Tagessummen (Aktivkalorien, Schritte, Distanz …) wachsen bis Mitternacht.
+    # Der 09:00-Sync erfasst „heute" nur teilweise; gestern war zum letzten Sync
+    # ggf. noch nicht abgeschlossen (Lauf nach 09:00). Darum die letzten Tage
+    # mit ihren jetzt finalen Werten nachziehen.
+    try:
+        _finalize_recent_days(client, user_id, days=2)
+    except Exception as e:
+        logger.warning("Finalisierung der Vortage übersprungen: %s", e)
 
     # ── Delta-Check: neue Aktivitäten ─────────────────────────────────────
 
@@ -307,6 +317,43 @@ def _nested(obj, *keys):
             return None
         obj = obj.get(k)
     return obj
+
+
+def _finalize_recent_days(client, user_id: str, days: int = 2) -> None:
+    """Lädt die finalen Tagessummen der letzten `days` Tage nach.
+
+    Aktualisiert nur die akkumulierenden Spalten (Kalorien/Schritte/Distanz/
+    Intensität) – Schlaf/HRV/Readiness bleiben unberührt. None-Werte werden
+    herausgefiltert, damit vorhandene gute Werte nicht überschrieben werden.
+    """
+    for n in range(1, days + 1):
+        d = (date.today() - timedelta(days=n)).isoformat()
+        us, err = _safe(_method(client, "get_user_summary"), d)
+        if err or not isinstance(us, dict) or not us:
+            continue
+
+        p: dict = {
+            "steps_total":             us.get("totalSteps"),
+            "steps_goal":              us.get("stepGoal"),
+            "calories_total":          us.get("totalKilocalories"),
+            "calories_active":         us.get("activeKilocalories"),
+            "calories_bmr":            us.get("bmrKilocalories"),
+            "distance_meters":         us.get("totalDistanceMeters"),
+            "active_minutes_moderate": us.get("moderateIntensityMinutes"),
+            "active_minutes_vigorous": us.get("vigorousIntensityMinutes"),
+            "floors_climbed":          us.get("floorsAscended"),
+            "user_summary_raw":        json.dumps(us),
+        }
+
+        sab, sab_err = _safe(_method(client, "get_stats_and_body"), d)
+        if sab_err is None and sab:
+            p["stats_and_body_raw"] = json.dumps(sab)
+
+        # None herausfiltern (außer Roh-JSON, das immer gesetzt werden darf)
+        p = {k: v for k, v in p.items() if v is not None}
+        if len(p) > 1:
+            _upsert_raw_metrics(user_id, d, p)
+            logger.info("Vortag %s finalisiert: %s aktive kcal", d, p.get("calories_active"))
 
 
 def _upsert_raw_metrics(user_id: str, metric_date: str, p: dict) -> None:
