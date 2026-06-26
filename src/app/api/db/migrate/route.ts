@@ -37,6 +37,22 @@ const MIGRATIONS = [
         ADD COLUMN IF NOT EXISTS training_status TEXT;
     `,
   },
+  {
+    name: '012_phase_advisor_training_time',
+    sql: `
+      ALTER TABLE user_profiles
+        ADD COLUMN IF NOT EXISTS phase_preset TEXT DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS weekly_training_schedule JSONB DEFAULT NULL;
+
+      ALTER TABLE daily_input
+        ADD COLUMN IF NOT EXISTS training_time TIME DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS workout_type  TEXT DEFAULT NULL;
+
+      ALTER TABLE nutrition_targets
+        ADD COLUMN IF NOT EXISTS training_time TIME DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS workout_type  TEXT DEFAULT NULL;
+    `,
+  },
 ]
 
 export async function GET(req: NextRequest) {
