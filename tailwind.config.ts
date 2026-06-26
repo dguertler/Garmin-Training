@@ -14,18 +14,18 @@ const config: Config = {
         prime:    { DEFAULT: '#10B981', light: '#6EE7B7', dark: '#059669' },
         moderate: { DEFAULT: '#F59E0B', light: '#FCD34D', dark: '#B45309' },
         low:      { DEFAULT: '#EF4444', light: '#FCA5A5', dark: '#B91C1C' },
-        // UI-Interaktionsfarbe (getrennt von Ampelfarben)
-        signal:   { DEFAULT: '#3B82F6', light: '#93C5FD', dark: '#1D4ED8' },
-        // Oberflächen (tiefes, kühles Dunkel — Telemetrie-Ästhetik)
+        // UI-Interaktionsfarbe — Electric Cyan (HUD-Energie, Garmin-Display-Ästhetik)
+        signal:   { DEFAULT: '#00BFFF', light: '#7DDFF5', dark: '#0090CC' },
+        // Oberflächen (tiefes Navy-Schwarz — Flight-Computer-Ästhetik)
         surface: {
-          DEFAULT: '#070A0F',   // page bg
-          card:    '#0D1117',   // card bg
-          lift:    '#141C28',   // elevated / hover states
-          border:  '#1C2535',   // borders
+          DEFAULT: '#060910',   // page bg
+          card:    '#0B1220',   // card bg
+          lift:    '#0F1929',   // elevated / hover states
+          border:  '#172130',   // borders
           muted:   '#475A72',   // muted text
         },
         // Text
-        ink:  '#C4D0E0',        // primary text (kühl-getönt)
+        ink:  '#BDD0E8',        // primary text (kühl-getönt)
         fade: '#4B5A6E',        // secondary text
       },
       fontFamily: {

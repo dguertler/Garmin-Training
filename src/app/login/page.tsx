@@ -35,9 +35,9 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="flex flex-col items-center mb-10 gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-signal flex items-center justify-center shadow-lg shadow-signal/20">
+          <div className="w-12 h-12 rounded-2xl bg-signal flex items-center justify-center shadow-lg shadow-signal/30">
             <span
-              className="text-sm font-bold text-white tracking-tight"
+              className="text-sm font-bold text-surface tracking-tight"
               style={{ fontFamily: 'var(--font-display)' }}
             >GT</span>
           </div>

@@ -70,15 +70,18 @@ export default function ReadinessScore({ score, level, color, recommendation, re
     <div className="card flex flex-col items-center gap-5">
 
       {/* Präzisionsmessgerät */}
-      <div className="relative w-44 h-44">
-        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+      <div className="relative w-48 h-48">
+        <svg
+          viewBox="0 0 100 100"
+          className={`w-full h-full -rotate-90 ${level === 'prime' ? 'animate-hud-pulse' : ''}`}
+        >
           {/* Tick-Ring */}
           {TICKS.map((t, i) => (
             <line
               key={i}
               x1={t.x1} y1={t.y1}
               x2={t.x2} y2={t.y2}
-              stroke={t.isMajor ? '#2A3A52' : '#1C2535'}
+              stroke={t.isMajor ? '#243248' : '#172130'}
               strokeWidth={t.isMajor ? 1.2 : 0.8}
               strokeLinecap="round"
             />
@@ -88,7 +91,7 @@ export default function ReadinessScore({ score, level, color, recommendation, re
           <circle
             cx="50" cy="50" r="38"
             fill="none"
-            stroke="#141C28"
+            stroke="#0F1929"
             strokeWidth="7"
           />
 
@@ -107,10 +110,10 @@ export default function ReadinessScore({ score, level, color, recommendation, re
         {/* Score-Anzeige */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span
-            className="text-[2.6rem] font-medium leading-none"
+            className="text-[3rem] font-medium leading-none"
             style={{
               fontFamily: 'var(--font-data)',
-              color: '#C4D0E0',
+              color: '#BDD0E8',
               fontVariantNumeric: 'tabular-nums',
             }}
           >

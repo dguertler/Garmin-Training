@@ -9,7 +9,7 @@ export default async function TrendsLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen">
       <NavBar userName={session.user?.name ?? undefined} />
-      <main className="max-w-3xl mx-auto px-4 py-6">{children}</main>
+      <main className="max-w-3xl mx-auto px-4 py-6 pb-24 sm:pb-8">{children}</main>
     </div>
   )
 }
