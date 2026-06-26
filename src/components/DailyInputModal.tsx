@@ -2,15 +2,30 @@
 import { useState } from 'react'
 
 interface Props {
-  initial?: { weight_kg?: number; body_fat_pct?: number; alcohol_units?: number }
+  initial?: { weight_kg?: number; body_fat_pct?: number; alcohol_units?: number; training_time?: string | null; workout_type?: string | null }
   onSave: (data: { weight_kg: number; body_fat_pct: number; alcohol_units?: number }) => void
   onClose: () => void
 }
+
+const WORKOUT_TYPES = [
+  { value: '', label: '— Wochenplan —' },
+  { value: 'push', label: 'Push (Kraft)' },
+  { value: 'pull', label: 'Pull (Kraft)' },
+  { value: 'legs', label: 'Legs (Kraft)' },
+  { value: 'strength', label: 'Kraft' },
+  { value: 'zone2', label: 'Zone 2 (Lauf)' },
+  { value: 'vo2max', label: 'VO2max / Intervalle' },
+  { value: 'cardio', label: 'Cardio' },
+  { value: 'mobility', label: 'Mobilität' },
+  { value: 'rest', label: 'Ruhetag' },
+]
 
 export default function DailyInputModal({ initial, onSave, onClose }: Props) {
   const [weight, setWeight] = useState(String(initial?.weight_kg ?? ''))
   const [fat, setFat] = useState(String(initial?.body_fat_pct ?? ''))
   const [alcohol, setAlcohol] = useState(String(initial?.alcohol_units ?? '0'))
+  const [trainingTime, setTrainingTime] = useState(initial?.training_time?.slice(0, 5) ?? '')
+  const [workoutType, setWorkoutType] = useState(initial?.workout_type ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -27,7 +42,11 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
       const res = await fetch('/api/daily-input', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weight_kg: w, body_fat_pct: f, alcohol_units: a }),
+        body: JSON.stringify({
+          weight_kg: w, body_fat_pct: f, alcohol_units: a,
+          training_time: trainingTime || null,
+          workout_type: workoutType || null,
+        }),
       })
       if (!res.ok) throw new Error((await res.json()).error)
       onSave({ weight_kg: w, body_fat_pct: f, alcohol_units: a })
@@ -107,6 +126,36 @@ export default function DailyInputModal({ initial, onSave, onClose }: Props) {
                 {alcoholUnits >= 3 ? ' Readiness-Warnung aktiv.' : ''}
               </p>
             )}
+          </div>
+
+          {/* Trainingszeit heute (Override – sonst gilt der Wochenplan) */}
+          <div>
+            <label htmlFor="input-workout-type" className="stat-label block mb-1.5">
+              Training heute
+              <span className="text-slate-500 font-normal ml-1.5">überschreibt Wochenplan für heute</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <select
+                id="input-workout-type"
+                className="input-field flex-1 min-w-0"
+                value={workoutType}
+                onChange={e => setWorkoutType(e.target.value)}
+              >
+                {WORKOUT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <input
+                id="input-training-time"
+                type="time"
+                aria-label="Trainingszeit heute"
+                className="input-field w-28 shrink-0 disabled:opacity-30"
+                value={trainingTime}
+                disabled={workoutType === '' || workoutType === 'rest' || workoutType === 'mobility'}
+                onChange={e => setTrainingTime(e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Pre-/Post-Workout-Mahlzeiten richten sich nach dieser Zeit.
+            </p>
           </div>
         </div>
 

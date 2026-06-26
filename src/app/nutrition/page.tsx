@@ -208,7 +208,12 @@ export default function NutritionPage() {
 
       {showInput && (
         <DailyInputModal
-          initial={{ weight_kg: t?.weight_kg, body_fat_pct: t?.body_fat_pct }}
+          initial={{
+            weight_kg: t?.weight_kg,
+            body_fat_pct: t?.body_fat_pct,
+            training_time: t?.training_time,
+            workout_type: t?.workout_type,
+          }}
           onSave={() => load()}
           onClose={() => setShowInput(false)}
         />
