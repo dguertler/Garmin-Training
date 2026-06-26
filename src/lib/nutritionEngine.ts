@@ -25,6 +25,7 @@ function skeletonRefeedDay(dow: number): boolean {
 }
 
 const NON_TRAINING_TYPES = new Set(['rest', 'mobility', 'mobilität', 'off'])
+const STRENGTH_TYPES = new Set(['push', 'pull', 'legs', 'strength'])
 
 /**
  * Ermittelt Trainingstag-Status, Refeed und effektive Trainingszeit für ein Datum.
@@ -95,6 +96,7 @@ export async function recomputeDailyTargets(userId: string, date: string): Promi
   )
 
   const preset = getPhasePreset(profile?.phase_preset, profile?.current_phase ?? 'cut')
+  const isStrengthDay = isTrainingDay && STRENGTH_TYPES.has((workoutType ?? '').toLowerCase())
 
   const macros = calcMacros({
     weightKg: input.weight_kg,
@@ -104,6 +106,9 @@ export async function recomputeDailyTargets(userId: string, date: string): Promi
     phasePreset: preset.key,
     isTrainingDay,
     isRefeedDay,
+    isStrengthDay,
+    // Empirisch kalibrierter TDEE als Ground-Truth-Anker (sobald vorhanden)
+    empiricalTdee: profile?.tdee_kcal_current ?? null,
     tdeeAdjustmentKcal: 0,
   })
 

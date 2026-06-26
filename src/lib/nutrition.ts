@@ -10,8 +10,18 @@ export interface DailyNutritionInput {
   phasePreset?: string | null
   isTrainingDay: boolean
   isRefeedDay: boolean
-  tdeeAdjustmentKcal?: number   // aus Selbstkalibrierung
+  /** true nur an echten Kraft-Tagen → Garmin-Aktivkalorien werden korrigiert (Lauf bleibt voll) */
+  isStrengthDay?: boolean
+  /**
+   * Empirisch kalibrierter TDEE (kcal) aus der Energiebilanz-Methode.
+   * Wenn gesetzt, ersetzt er die Garmin-Schätzung als Erhaltungs-Anker (Ground Truth).
+   */
+  empiricalTdee?: number | null
+  tdeeAdjustmentKcal?: number   // Legacy-Offset (wird nur ohne empiricalTdee genutzt)
 }
+
+/** 1 kg Körpergewicht ≈ 7700 kcal (Energiedichte gemischtes Körpergewebe). */
+export const KCAL_PER_KG = 7700
 
 export interface MacroTargets {
   caloriesTarget: number
@@ -56,8 +66,18 @@ export function calcMacros(input: DailyNutritionInput): MacroTargets {
   const leanMassKg = calcLeanMass(input.weightKg, input.bodyFatPct)
   const bmrKcal = Math.round(370 + 21.6 * leanMassKg)
 
-  const correctedActive = correctActiveCalories(input.activeCaloriesGarmin, input.isTrainingDay)
-  const tdeeKcal = bmrKcal + correctedActive + (input.tdeeAdjustmentKcal ?? 0)
+  // Garmin-Schätzung (Seed): 0,75-Korrektur nur an echten Kraft-Tagen, Lauf bleibt voll
+  const correctedActive = correctActiveCalories(
+    input.activeCaloriesGarmin,
+    input.isStrengthDay ?? false,
+  )
+  const estimateTdee = bmrKcal + correctedActive + (input.tdeeAdjustmentKcal ?? 0)
+
+  // Wenn empirisch kalibriert → echten TDEE als Erhaltungs-Anker nutzen (Ground Truth),
+  // sonst die Garmin-Schätzung als Startwert.
+  const tdeeKcal = input.empiricalTdee && input.empiricalTdee > 0
+    ? Math.round(input.empiricalTdee)
+    : estimateTdee
 
   // Preset bestimmt absolutes Kaloriendelta + Protein/Fett-Floor
   const preset = getPhasePreset(input.phasePreset, input.phase)
@@ -258,6 +278,37 @@ export function calcWeightTrend(weights: { date: string; weight: number }[]): {
     const avg = window.reduce((a, b) => a + b, 0) / window.length
     return { ...entry, trend: Math.round(avg * 100) / 100 }
   })
+}
+
+/**
+ * Lineare Regression (kleinste Quadrate) der Steigung pro Tag.
+ * x = Tagesabstand zum ersten Datum, y = Messwert. Robuster als 2-Block-Mittel,
+ * weil alle Punkte einfließen und Wasser-/Glykogen-Rauschen herausmittelt.
+ */
+export function linearSlopePerDay(points: { date: string; value: number }[]): number | null {
+  if (points.length < 4) return null
+  const t0 = new Date(points[0].date + 'T00:00:00').getTime()
+  const xs = points.map(p => (new Date(p.date + 'T00:00:00').getTime() - t0) / 86_400_000)
+  const ys = points.map(p => p.value)
+  const n = xs.length
+  const meanX = xs.reduce((a, b) => a + b, 0) / n
+  const meanY = ys.reduce((a, b) => a + b, 0) / n
+  let num = 0, den = 0
+  for (let i = 0; i < n; i++) {
+    num += (xs[i] - meanX) * (ys[i] - meanY)
+    den += (xs[i] - meanX) ** 2
+  }
+  if (den === 0) return null
+  return num / den
+}
+
+/**
+ * Energiebilanz-Methode (adaptive TDEE):
+ *   echter TDEE = Ø-Zufuhr − (Gewichts-Trend [kg/Tag] × 7700)
+ * Bei Gewichtsverlust (negative Steigung) liegt der TDEE über der Zufuhr.
+ */
+export function empiricalTDEE(meanIntakeKcal: number, weightSlopeKgPerDay: number): number {
+  return Math.round(meanIntakeKcal - weightSlopeKgPerDay * KCAL_PER_KG)
 }
 
 // TDEE-Selbstkalibrierung nach 14 Tagen

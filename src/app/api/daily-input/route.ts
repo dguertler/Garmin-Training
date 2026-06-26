@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { query, queryOne } from '@/lib/db'
 import { recomputeDailyTargets } from '@/lib/nutritionEngine'
+import { maybeAutoCalibrate } from '@/lib/tdeeCalibration'
 
 
 export async function POST(req: NextRequest) {
@@ -40,6 +41,10 @@ export async function POST(req: NextRequest) {
      WHERE user_id = $1`,
     [userId, weight_kg, body_fat_pct]
   )
+
+  // Rollende Auto-Kalibrierung (max. 1×/Woche) – passt tdee_kcal_current an,
+  // bevor die Tagesziele daraus berechnet werden.
+  await maybeAutoCalibrate(userId)
 
   // Ziele + Mahlzeitenplan (zeit-/preset-abhängig) berechnen
   await recomputeDailyTargets(userId, date)
